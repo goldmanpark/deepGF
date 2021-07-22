@@ -16,70 +16,74 @@ from selenium.webdriver.common.keys import Keys
 # from selenium.webdriver.support import expected_conditions as EC
 
 # Initialize global vaiables
-gfMembers = ['소원', '예린', '은하', '유주', '신비', '엄지']
+gfMembers_KOR = ['소원', '예린', '은하', '유주', '신비', '엄지']
+gfMembers_ENG = ['SOWON', 'YERIN', 'EUNHA', 'YUJU', 'SINB', 'UMJI']
 threadStart = [False, False, False, False, False, False]
-XPATH_IMG = '//*[@id="Sva75c"]/div/div/div[3]/div[2]/c-wiz/div/div[1]/div[1]/div[2]/div[1]/a/img'
 chromeDriverLocation = os.getcwd() + '/chromedriver.exe'
 
 def findOrCreateDirectory(idx):
     try:
-        name = gfMembers[idx]
-        Path(os.getcwd() + '/' + name).mkdir(parents=True, exist_ok=True)
+        Path(os.getcwd() + '/' + gfMembers_ENG[idx]).mkdir(parents=True, exist_ok=True)
     except Exception as e:
         print(e)
 
 def storeMemberImage(idx):
-    name = gfMembers[idx]
     chromeDriver = webdriver.Chrome(chromeDriverLocation)
     chromeDriver.implicitly_wait(3)
     #chromeWait = WebDriverWait(chromeDriver, 10, poll_frequency=1)
     chromeDriver.get('https://www.google.co.kr/imghp?hl=ko')
-    chromeDriver.find_element_by_xpath('//*[@id="sbtc"]/div/div[2]/input').send_keys('여자친구 ' + name)
+    chromeDriver.find_element_by_xpath('//*[@id="sbtc"]/div/div[2]/input').send_keys('여자친구 ' + gfMembers_KOR[idx])
     chromeDriver.find_element_by_xpath('//*[@id="sbtc"]/button').click()
     chromeDriver.implicitly_wait(2)
 
     # wait until browsers in other threads can start
-    # threadStart[idx] = True    
-    # while not all(threadStart):
-    #     pass
+    threadStart[idx] = True    
+    while not all(threadStart):
+        pass
 
-    count = 0
-    while(count < 50):
+    # 1. Scrolling down until cannot scroll no more
+    last_height = chromeDriver.execute_script('return document.body.scrollHeight')
+    while True:
+        chromeDriver.execute_script('window.scrollTo(0,document.body.scrollHeight)')
+        time.sleep(2)
+        new_height = chromeDriver.execute_script('return document.body.scrollHeight')
         try:
-            # 1. get count of images and gather images
-            currentBodyCount = len(chromeDriver.find_elements_by_css_selector('.rg_i.Q4LuWd'))
-            for i in range(1, currentBodyCount):
-                chromeDriver.find_element_by_xpath('//*[@id="islrg"]/div[1]/div[' + str(i) + ']/a[1]').click()
-                # WebDriverWait cannot wait until image is fully loaded
-                # chromeWait.until(EC.presence_of_element_located((By.XPATH, XPATH_IMG)))
-                # chromeWait.until(EC.presence_of_element_located((By.CLASS_NAME, 'n3VNCb')))
-                # chromeWait.until(EC.presence_of_element_located((By.TAG_NAME, 'img')))
-                time.sleep(1.5) # brute but perfect                
-                src = chromeDriver.find_element_by_xpath(XPATH_IMG).get_attribute('src')
-                count += i
-                urllib.request.urlretrieve(src, os.getcwd() + '/' + name + '/google_' + format(count, '05') + '.png')
-                
-            # 2. scroll down
-            chromeDriver.find_element_by_tag_name("body").send_keys(Keys.PAGE_DOWN)
-            time.sleep(1.5)
+            chromeDriver.find_element_by_xpath('//*[@id="islmp"]/div/div/div/div/div[5]/input').click()
+            time.sleep(2)
+        except:
+            pass
+        if new_height == last_height:
+            break
+        last_height = new_height
+    
+    # 2. Count images and download all
+    currentBodyCount = len(chromeDriver.find_elements_by_css_selector('.rg_i.Q4LuWd'))
+    for i in range(1, currentBodyCount):
+        try:
+            chromeDriver.find_element_by_xpath('//*[@id="islrg"]/div[1]/div[' + str(i) + ']/a[1]').click()
+            # WebDriverWait cannot wait until image is fully loaded
+            # chromeWait.until(EC.presence_of_element_located((By.XPATH, XPATH_IMG)))
+            # chromeWait.until(EC.presence_of_element_located((By.CLASS_NAME, 'n3VNCb')))
+            # chromeWait.until(EC.presence_of_element_located((By.TAG_NAME, 'img')))
+            time.sleep(1.5) # brute but perfect                
+            src = chromeDriver.find_element_by_xpath('//*[@id="Sva75c"]/div/div/div[3]/div[2]/c-wiz/div/div[1]/div[1]/div[2]/div[1]/a/img').get_attribute('src')
+            urllib.request.urlretrieve(src, os.getcwd() + '/' + gfMembers_ENG[idx] + '/google_' + format(i, '05') + '.png')
         except Exception as e:
+            print(gfMembers_ENG[idx] + '(' + format(i, '05') + ') :')
             print(e)
             pass
 
     chromeDriver.close()
-    print(name + ' finished')
+    print(gfMembers_ENG[idx] + ' finished')
 
 # Main
-# threadList = []
-# for idx in range(0, 6):
-#     findOrCreateDirectory(idx)
-#     th = threading.Thread(target=storeMemberImage, args=(idx,))
-#     th.start()
+threadList = []
+for idx in range(0, 6):
+    findOrCreateDirectory(idx)
+    th = threading.Thread(target=storeMemberImage, args=(idx,), name='thread_' + gfMembers_ENG[idx])
+    th.start()
 
-# for thread in threadList:
-#     thread.join()
-
-findOrCreateDirectory(0) # 소원 테스트
-storeMemberImage(0)
+for thread in threadList:
+    thread.join()
 
 print('Finished!')
