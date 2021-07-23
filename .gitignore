@@ -3,15 +3,12 @@
 *.exe
 
 # image directory
-/소원
-/예린
-/은하
-/유주
-/신비
-/엄지
 /SOWON
 /YERIN
 /EUNHA
 /YUJU
 /SINB
 /UMJI
+
+# error log directory
+/ERROR

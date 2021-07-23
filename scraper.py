@@ -7,6 +7,8 @@
 import os
 import time
 import threading
+import logging
+import datetime
 import urllib.request
 from pathlib import Path
 from selenium import webdriver
@@ -21,21 +23,30 @@ gfMembers_ENG = ['SOWON', 'YERIN', 'EUNHA', 'YUJU', 'SINB', 'UMJI']
 threadStart = [False, False, False, False, False, False]
 chromeDriverLocation = os.getcwd() + '/chromedriver.exe'
 
+# error Logger setting
+Path(os.getcwd() + '/ERROR').mkdir(parents=True, exist_ok=True)
+errLogName = 'ERROR/' + datetime.datetime.now().strftime('%Y_%m_%d') + '.log'
+logging.basicConfig(filename=errLogName, filemode='w', encoding='utf-8', level=logging.ERROR)
+loggerLock = threading.Lock()
+
 def findOrCreateDirectory(idx):
     try:
         Path(os.getcwd() + '/' + gfMembers_ENG[idx]).mkdir(parents=True, exist_ok=True)
     except Exception as e:
         print(e)
 
-def storeMemberImage(idx):
-    chromeDriver = webdriver.Chrome(chromeDriverLocation)
+def storeMemberImage(idx, lock):
+    option = webdriver.ChromeOptions()
+    #option.add_experimental_option('excludeSwitches', ['enable-logging'])
+    option.add_argument('log-level=3')
+    chromeDriver = webdriver.Chrome(chromeDriverLocation, options=option)
     chromeDriver.implicitly_wait(3)
     #chromeWait = WebDriverWait(chromeDriver, 10, poll_frequency=1)
     chromeDriver.get('https://www.google.co.kr/imghp?hl=ko')
     chromeDriver.find_element_by_xpath('//*[@id="sbtc"]/div/div[2]/input').send_keys('여자친구 ' + gfMembers_KOR[idx])
     chromeDriver.find_element_by_xpath('//*[@id="sbtc"]/button').click()
     chromeDriver.implicitly_wait(2)
-
+    
     # wait until browsers in other threads can start
     threadStart[idx] = True    
     while not all(threadStart):
@@ -56,7 +67,7 @@ def storeMemberImage(idx):
             break
         last_height = new_height
     
-    # 2. Count images and download all
+    # 2. Count images and download all    
     currentBodyCount = len(chromeDriver.find_elements_by_css_selector('.rg_i.Q4LuWd'))
     for i in range(1, currentBodyCount):
         try:
@@ -68,9 +79,12 @@ def storeMemberImage(idx):
             time.sleep(1.5) # brute but perfect                
             src = chromeDriver.find_element_by_xpath('//*[@id="Sva75c"]/div/div/div[3]/div[2]/c-wiz/div/div[1]/div[1]/div[2]/div[1]/a/img').get_attribute('src')
             urllib.request.urlretrieve(src, os.getcwd() + '/' + gfMembers_ENG[idx] + '/google_' + format(i, '05') + '.png')
-        except Exception as e:
-            print(gfMembers_ENG[idx] + '(' + format(i, '05') + ') :')
-            print(e)
+        except Exception as ex:
+            with lock:
+                print(gfMembers_ENG[idx] + '(' + format(i, '05') + ') :')
+                print(ex)
+                logging.error(gfMembers_ENG[idx] + '(' + format(i, '05') + ') :')
+                logging.error(ex)
             pass
 
     chromeDriver.close()
@@ -80,7 +94,7 @@ def storeMemberImage(idx):
 threadList = []
 for idx in range(0, 6):
     findOrCreateDirectory(idx)
-    th = threading.Thread(target=storeMemberImage, args=(idx,), name='thread_' + gfMembers_ENG[idx])
+    th = threading.Thread(target=storeMemberImage, args=[idx, loggerLock], name='thread_' + gfMembers_ENG[idx])
     th.start()
 
 for thread in threadList:
