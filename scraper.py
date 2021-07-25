@@ -26,11 +26,27 @@ gfMembers_ENG = ['SOWON', 'YERIN', 'EUNHA', 'YUJU', 'SINB', 'UMJI']
 threadStart = [False, False, False, False, False, False]
 chromeDriverLocation = os.getcwd() + '/chromedriver.exe'
 
-# error Logger setting
-Path(os.getcwd() + '/ERROR').mkdir(parents=True, exist_ok=True)
-errLogName = 'ERROR/' + datetime.datetime.now().strftime('%Y_%m_%d') + '.log'
-logging.basicConfig(filename=errLogName, filemode='w', encoding='utf-8', level=logging.ERROR)
-loggerLock = threading.Lock()
+# error Log directory setting
+# Log directory structure with example:
+# /LOG
+#   -/ERROR
+#       -20210725_134030_SOWON.log
+#   -/COMPLETE
+#       -20210725_141032_SOWON.log
+Path(os.getcwd() + '/LOG').mkdir(parents=True, exist_ok=True)
+Path(os.getcwd() + '/LOG/ERROR').mkdir(parents=True, exist_ok=True)
+Path(os.getcwd() + '/LOG/COMPLETE').mkdir(parents=True, exist_ok=True)
+
+# selenium option
+chromeDriverOptions = webdriver.ChromeOptions()
+chromeDriverOptions.add_argument('log-level=3')  # to skip inevitable handshake err log
+chromeDriverOptions.add_argument("--disable-extensions")
+chromeDriverOptions.add_argument("disable-infobars")
+
+# request option
+opener = urllib.request.build_opener()
+opener.addheaders = [('User-agent', 'Mozilla/5.0')] #to prevent HTTP Error 403: Forbidden
+urllib.request.install_opener(opener)
 
 def findOrCreateDirectory(idx):
     try:
@@ -40,10 +56,21 @@ def findOrCreateDirectory(idx):
     except Exception as e:
         print(e)
 
-def storeMemberImage_Google(idx, lock):
-    option = webdriver.ChromeOptions()
-    option.add_argument('log-level=3')  # to skip inevitable handshake err log
-    chromeDriver = webdriver.Chrome(chromeDriverLocation, options=option)
+def writeErrorlog(logger, errTitle, url, ex):
+    logger.error(errTitle + datetime.datetime.now().strftime('%Y-%m%d %H:%M:%S'))
+    logger.error(url)
+    logger.error(ex)
+    logger.error('----------------------------------------')
+
+def storeMemberImage_Google(idx):
+    # set error logger
+    errLogName = os.getcwd() + '/LOG/ERROR/' + datetime.datetime.now().strftime('%Y%m%d_%H%M%S') + '_' + gfMembers_ENG[idx] + '.log'
+    logger = logging.getLogger(gfMembers_ENG[idx] + 'Logger')
+    logger.setLevel(logging.ERROR)
+    logger.addHandler(logging.FileHandler(errLogName))
+
+    # chromeDriver setting    
+    chromeDriver = webdriver.Chrome(chromeDriverLocation, options=chromeDriverOptions)
     chromeDriver.implicitly_wait(3)
     #chromeWait = WebDriverWait(chromeDriver, 10, poll_frequency=1)
     chromeDriver.get('https://www.google.co.kr/imghp?hl=ko')
@@ -75,7 +102,9 @@ def storeMemberImage_Google(idx, lock):
     currentBodyCount = len(chromeDriver.find_elements_by_css_selector('.rg_i.Q4LuWd'))
     for i in range(1, currentBodyCount):
         try:
-            # click thumbnail to get larger image
+            errTitle = gfMembers_ENG[idx] + '(' + format(i, '05') + ') :'
+
+            # 2-1. click thumbnail to get larger image
             chromeDriver.find_element_by_xpath('//*[@id="islrg"]/div[1]/div[' + str(i) + ']/a[1]').click()
             # WebDriverWait cannot wait until image is fully loaded
             # chromeWait.until(EC.presence_of_element_located((By.XPATH, XPATH_IMG)))
@@ -83,28 +112,29 @@ def storeMemberImage_Google(idx, lock):
             # chromeWait.until(EC.presence_of_element_located((By.TAG_NAME, 'img')))
             time.sleep(1.5) # brute but perfect
 
-            # store original image
+            # 2-2. store original image
             imgUrl = chromeDriver.find_element_by_xpath('//*[@id="Sva75c"]/div/div/div[3]/div[2]/c-wiz/div/div[1]/div[1]/div[2]/div[1]/a/img').get_attribute('src')
             imgDir = os.getcwd() + '/' + gfMembers_ENG[idx] + '/ORIGINAL/google_' + format(i, '05') + '.png'
             urllib.request.urlretrieve(imgUrl, imgDir)
             
-            # face detection and crop, store
-            rgbImg = cv2.cvtColor(cv2.imread(imgDir), cv2.COLOR_BGR2RGB) #numpy array type
+            # 2-3. face detection and crop, store
+            rgbImg = cv2.cvtColor(cv2.imread(imgDir), cv2.COLOR_BGR2RGB) # return numpy array type
             detector = MTCNN()
-            for result in detector.detect_faces(rgbImg):
-                x = result['box'][0]
-                y = result['box'][1]
-                w = result['box'][2]
-                h = result['box'][3]
-                cropImg = Image.fromarray(rgbImg[y : y + h, x : x + w]) #image
-                cropImg.save(os.getcwd() + '/' + gfMembers_ENG[idx] + '/FACE/google_' + format(i, '05') + '.png')                
-
+            results = detector.detect_faces(rgbImg)
+            if len(results) == 1:
+                res = results[0]
+                x = res['box'][0]
+                y = res['box'][1]
+                w = res['box'][2]
+                h = res['box'][3]
+                cropImg = Image.fromarray(rgbImg[y : y + h, x : x + w])
+                cropImg.save(os.getcwd() + '/' + gfMembers_ENG[idx] + '/FACE/google_' + format(i, '05') + '.png')
+            elif len(results) == 0:
+                writeErrorlog(logger, errTitle, imgUrl, 'no faces detected')
+            else:   #len(results) > 1
+                writeErrorlog(logger, errTitle, imgUrl, '2 or more faces detected')
         except Exception as ex:
-            with lock:
-                print(gfMembers_ENG[idx] + '(' + format(i, '05') + ') :')
-                print(ex)
-                logging.error(gfMembers_ENG[idx] + '(' + format(i, '05') + ') :')
-                logging.error(ex)
+            writeErrorlog(logger, errTitle, imgUrl, str(ex))
             pass
 
     chromeDriver.close()
@@ -114,7 +144,7 @@ def storeMemberImage_Google(idx, lock):
 threadList = []
 for idx in range(0, 6):
     findOrCreateDirectory(idx)
-    th = threading.Thread(target=storeMemberImage_Google, args=[idx, loggerLock], name='thread_' + gfMembers_ENG[idx])
+    th = threading.Thread(target=storeMemberImage_Google, args=(idx, ), name='thread_' + gfMembers_ENG[idx])
     th.start()
 
 for thread in threadList:
