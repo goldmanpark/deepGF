@@ -12,3 +12,6 @@
 
 # error log directory
 /LOG
+
+# cache
+/__pycache__

@@ -5,20 +5,21 @@
 # https://velog.io/@log327/Python-Selenium-Explicit-Waits-%EC%82%AC%EC%9A%A9%ED%95%98%EA%B8%B0
 
 import os
-import io
 import time
 import threading
-import logging
-import datetime
 import urllib.request
+import atexit
+import cv2
 from pathlib import Path
 from selenium import webdriver
-# from selenium.webdriver.common.by import By
-# from selenium.webdriver.support.ui import WebDriverWait
-# from selenium.webdriver.support import expected_conditions as EC
+import selenium.common.exceptions
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from mtcnn import MTCNN
 from PIL import Image
-import cv2
+# custom class
+from scrap_Logger import ScrapLogger
 
 # Initialize global vaiables
 gfMembers_KOR = ['소원', '예린', '은하', '유주', '신비', '엄지']
@@ -26,22 +27,14 @@ gfMembers_ENG = ['SOWON', 'YERIN', 'EUNHA', 'YUJU', 'SINB', 'UMJI']
 threadStart = [False, False, False, False, False, False]
 chromeDriverLocation = os.getcwd() + '/chromedriver.exe'
 
-# error Log directory setting
-# Log directory structure with example:
-# /LOG
-#   -/ERROR
-#       -20210725_134030_SOWON.log
-#   -/COMPLETE
-#       -20210725_141032_SOWON.log
-Path(os.getcwd() + '/LOG').mkdir(parents=True, exist_ok=True)
-Path(os.getcwd() + '/LOG/ERROR').mkdir(parents=True, exist_ok=True)
-Path(os.getcwd() + '/LOG/COMPLETE').mkdir(parents=True, exist_ok=True)
-
 # selenium option
 chromeDriverOptions = webdriver.ChromeOptions()
 chromeDriverOptions.add_argument('log-level=3')  # to skip inevitable handshake err log
 chromeDriverOptions.add_argument("--disable-extensions")
 chromeDriverOptions.add_argument("disable-infobars")
+chromeDriverOptions.add_argument('window-size=1920x1080') 
+chromeDriverOptions.add_argument("disable-gpu")
+chromeDriverOptions.add_argument('headless')
 
 # request option
 opener = urllib.request.build_opener()
@@ -56,23 +49,14 @@ def findOrCreateDirectory(idx):
     except Exception as e:
         print(e)
 
-def writeErrorlog(logger, errTitle, url, ex):
-    logger.error(errTitle + datetime.datetime.now().strftime('%Y-%m%d %H:%M:%S'))
-    logger.error(url)
-    logger.error(ex)
-    logger.error('----------------------------------------')
-
 def storeMemberImage_Google(idx):
-    # set error logger
-    errLogName = os.getcwd() + '/LOG/ERROR/' + datetime.datetime.now().strftime('%Y%m%d_%H%M%S') + '_' + gfMembers_ENG[idx] + '.log'
-    logger = logging.getLogger(gfMembers_ENG[idx] + 'Logger')
-    logger.setLevel(logging.ERROR)
-    logger.addHandler(logging.FileHandler(errLogName))
+    # set logger
+    logger = ScrapLogger(gfMembers_ENG[idx])
 
     # chromeDriver setting    
     chromeDriver = webdriver.Chrome(chromeDriverLocation, options=chromeDriverOptions)
     chromeDriver.implicitly_wait(3)
-    #chromeWait = WebDriverWait(chromeDriver, 10, poll_frequency=1)
+    chromeWait = WebDriverWait(chromeDriver, 10, poll_frequency=1)
     chromeDriver.get('https://www.google.co.kr/imghp?hl=ko')
     chromeDriver.find_element_by_xpath('//*[@id="sbtc"]/div/div[2]/input').send_keys('여자친구 ' + gfMembers_KOR[idx])
     chromeDriver.find_element_by_xpath('//*[@id="sbtc"]/button').click()
@@ -85,35 +69,54 @@ def storeMemberImage_Google(idx):
 
     # 1. Scrolling down until cannot scroll no more
     last_height = chromeDriver.execute_script('return document.body.scrollHeight')
+    count = 0
+    scroll_sec = 1.5
     while True:
         chromeDriver.execute_script('window.scrollTo(0,document.body.scrollHeight)')
-        time.sleep(2)
+        time.sleep(scroll_sec)
         new_height = chromeDriver.execute_script('return document.body.scrollHeight')
-        try:
-            chromeDriver.find_element_by_xpath('//*[@id="islmp"]/div/div/div/div/div[5]/input').click()
-            time.sleep(2)
-        except:
-            pass
-        if new_height == last_height:
+        if new_height == last_height and count == 5:
             break
+        if new_height == last_height and count < 5: # new_height == last_height -> counting.
+            count += 1
+            scroll_sec += 0.5
+        if new_height != last_height and count > 0:
+            count = 0
+            scroll_sec = 1.5
         last_height = new_height
     
-    # 2. Count images and download all    
-    currentBodyCount = len(chromeDriver.find_elements_by_css_selector('.rg_i.Q4LuWd'))
+    # 2. Count images and download all
+    XPATH_IMG = '//*[@id="Sva75c"]/div/div/div[3]/div[2]/c-wiz/div/div[1]/div[1]/div[2]/div[1]/a/img'    
+    currentBodyCount = len(chromeDriver.find_elements_by_css_selector('.rg_i.Q4LuWd')) # 400
+    print(gfMembers_ENG[idx] + '_img_count = ' + str(currentBodyCount))
     for i in range(1, currentBodyCount):
         try:
             errTitle = gfMembers_ENG[idx] + '(' + format(i, '05') + ') :'
+            imgUrl = ''
 
             # 2-1. click thumbnail to get larger image
-            chromeDriver.find_element_by_xpath('//*[@id="islrg"]/div[1]/div[' + str(i) + ']/a[1]').click()
-            # WebDriverWait cannot wait until image is fully loaded
-            # chromeWait.until(EC.presence_of_element_located((By.XPATH, XPATH_IMG)))
-            # chromeWait.until(EC.presence_of_element_located((By.CLASS_NAME, 'n3VNCb')))
-            # chromeWait.until(EC.presence_of_element_located((By.TAG_NAME, 'img')))
-            time.sleep(1.5) # brute but perfect
+            for cnt in range(5):
+                try:
+                    chromeDriver.find_element_by_xpath('//*[@id="islrg"]/div[1]/div[' + str(i) + ']/a[1]').click()
+                    chromeWait.until(EC.presence_of_element_located((By.XPATH, XPATH_IMG)))
+                    chromeWait.until(EC.presence_of_element_located((By.CLASS_NAME, 'n3VNCb')))
+                    chromeWait.until(EC.presence_of_element_located((By.TAG_NAME, 'img')))
+                    imgUrl = chromeDriver.find_element_by_xpath(XPATH_IMG).get_attribute('src')
+                    time.sleep(1.5)
+                    break
+                except selenium.common.exceptions.NoSuchElementException:
+                    if cnt < 4:
+                        time.sleep(3)
+                        pass
+                    else:
+                        raise
+                except Exception:
+                    raise
+            if imgUrl == '':
+                logger.writeErrorlog(errTitle, imgUrl, 'no url detected')
+                pass
 
             # 2-2. store original image
-            imgUrl = chromeDriver.find_element_by_xpath('//*[@id="Sva75c"]/div/div/div[3]/div[2]/c-wiz/div/div[1]/div[1]/div[2]/div[1]/a/img').get_attribute('src')
             imgDir = os.getcwd() + '/' + gfMembers_ENG[idx] + '/ORIGINAL/google_' + format(i, '05') + '.png'
             urllib.request.urlretrieve(imgUrl, imgDir)
             
@@ -130,17 +133,21 @@ def storeMemberImage_Google(idx):
                 cropImg = Image.fromarray(rgbImg[y : y + h, x : x + w])
                 cropImg.save(os.getcwd() + '/' + gfMembers_ENG[idx] + '/FACE/google_' + format(i, '05') + '.png')
             elif len(results) == 0:
-                writeErrorlog(logger, errTitle, imgUrl, 'no faces detected')
+                logger.writeErrorlog(errTitle, imgUrl, 'no faces detected')
             else:   #len(results) > 1
-                writeErrorlog(logger, errTitle, imgUrl, '2 or more faces detected')
+                logger.writeErrorlog(errTitle, imgUrl, '2 or more faces detected')
         except Exception as ex:
-            writeErrorlog(logger, errTitle, imgUrl, str(ex))
+            logger.writeErrorlog(errTitle, imgUrl, str(ex))
             pass
 
     chromeDriver.close()
     print(gfMembers_ENG[idx] + ' finished')
 
+def scrapExit():
+    print('Finished!')
+
 # Main
+atexit.register(scrapExit)
 threadList = []
 for idx in range(0, 6):
     findOrCreateDirectory(idx)
@@ -149,5 +156,3 @@ for idx in range(0, 6):
 
 for thread in threadList:
     thread.join()
-
-print('Finished!')
