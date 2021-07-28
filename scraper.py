@@ -86,10 +86,11 @@ def storeMemberImage_Google(idx):
         last_height = new_height
     
     # 2. Count images and download all
-    XPATH_IMG = '//*[@id="Sva75c"]/div/div/div[3]/div[2]/c-wiz/div/div[1]/div[1]/div[2]/div[1]/a/img'    
-    currentBodyCount = len(chromeDriver.find_elements_by_css_selector('.rg_i.Q4LuWd')) # 400
-    print(gfMembers_ENG[idx] + '_img_count = ' + str(currentBodyCount))
-    for i in range(1, currentBodyCount):
+    XPATH_IMG = '//*[@id="Sva75c"]/div/div/div[3]/div[2]/c-wiz/div/div[1]/div[1]/div[2]/div[1]/a/img'
+    images = chromeDriver.find_elements_by_css_selector('.rg_i.Q4LuWd')
+    print(gfMembers_ENG[idx] + '_img_count = ' + str(len(images)))
+
+    for i in range(0, len(images)):
         try:
             errTitle = gfMembers_ENG[idx] + '(' + format(i, '05') + ') :'
             imgUrl = ''
@@ -97,14 +98,11 @@ def storeMemberImage_Google(idx):
             # 2-1. click thumbnail to get larger image
             for cnt in range(5):
                 try:
-                    chromeDriver.find_element_by_xpath('//*[@id="islrg"]/div[1]/div[' + str(i) + ']/a[1]').click()
+                    images[i].click()
                     chromeWait.until(EC.presence_of_element_located((By.XPATH, XPATH_IMG)))
-                    chromeWait.until(EC.presence_of_element_located((By.CLASS_NAME, 'n3VNCb')))
-                    chromeWait.until(EC.presence_of_element_located((By.TAG_NAME, 'img')))
                     imgUrl = chromeDriver.find_element_by_xpath(XPATH_IMG).get_attribute('src')
-                    time.sleep(1.5)
                     break
-                except selenium.common.exceptions.NoSuchElementException:
+                except selenium.common.exceptions.ElementClickInterceptedException: # when cannot click
                     if cnt < 4:
                         time.sleep(3)
                         pass
@@ -112,30 +110,34 @@ def storeMemberImage_Google(idx):
                         raise
                 except Exception:
                     raise
+
             if imgUrl == '':
                 logger.writeErrorlog(errTitle, imgUrl, 'no url detected')
                 pass
-
+            if imgUrl.startswith('http') == False:
+                logger.writeErrorlog(errTitle, imgUrl, 'abnormal img src')
+                pass
+            
             # 2-2. store original image
             imgDir = os.getcwd() + '/' + gfMembers_ENG[idx] + '/ORIGINAL/google_' + format(i, '05') + '.png'
             urllib.request.urlretrieve(imgUrl, imgDir)
             
             # 2-3. face detection and crop, store
-            rgbImg = cv2.cvtColor(cv2.imread(imgDir), cv2.COLOR_BGR2RGB) # return numpy array type
-            detector = MTCNN()
-            results = detector.detect_faces(rgbImg)
-            if len(results) == 1:
-                res = results[0]
-                x = res['box'][0]
-                y = res['box'][1]
-                w = res['box'][2]
-                h = res['box'][3]
-                cropImg = Image.fromarray(rgbImg[y : y + h, x : x + w])
-                cropImg.save(os.getcwd() + '/' + gfMembers_ENG[idx] + '/FACE/google_' + format(i, '05') + '.png')
-            elif len(results) == 0:
-                logger.writeErrorlog(errTitle, imgUrl, 'no faces detected')
-            else:   #len(results) > 1
-                logger.writeErrorlog(errTitle, imgUrl, '2 or more faces detected')
+            # rgbImg = cv2.cvtColor(cv2.imread(imgDir), cv2.COLOR_BGR2RGB) # return numpy array type
+            # detector = MTCNN()
+            # results = detector.detect_faces(rgbImg)
+            # if len(results) == 1:
+            #     res = results[0]
+            #     x = res['box'][0]
+            #     y = res['box'][1]
+            #     w = res['box'][2]
+            #     h = res['box'][3]
+            #     cropImg = Image.fromarray(rgbImg[y : y + h, x : x + w])
+            #     cropImg.save(os.getcwd() + '/' + gfMembers_ENG[idx] + '/FACE/google_' + format(i, '05') + '.png')
+            # elif len(results) == 0:
+            #     logger.writeErrorlog(errTitle, imgUrl, 'no faces detected')
+            # else:   #len(results) > 1
+            #     logger.writeErrorlog(errTitle, imgUrl, '2 or more faces detected')
         except Exception as ex:
             logger.writeErrorlog(errTitle, imgUrl, str(ex))
             pass
