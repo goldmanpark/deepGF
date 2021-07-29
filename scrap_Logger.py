@@ -22,9 +22,8 @@ class ScrapLogger:
         self.logger.setLevel(logging.ERROR)
         self.logger.addHandler(logging.FileHandler(errLogName))
         
-    def writeErrorlog(self, title, url, ex):
+    def writeErrorlog(self, title, content):
         self.logger.error(title + ' : ' + datetime.datetime.now().strftime('%Y-%m%d %H:%M:%S'))
-        self.logger.error(url)
-        self.logger.error(ex)
+        self.logger.error(content)
         self.logger.error('----------------------------------------')
         

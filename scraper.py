@@ -12,7 +12,6 @@ import atexit
 import cv2
 from pathlib import Path
 from selenium import webdriver
-import selenium.common.exceptions
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -49,9 +48,8 @@ def findOrCreateDirectory(idx):
     except Exception as e:
         print(e)
 
-def storeMemberImage_Google(idx):
-    # set logger
-    logger = ScrapLogger(gfMembers_ENG[idx])
+def storeMemberImage_Google(idx, logger):
+    memberName = gfMembers_ENG[idx]
 
     # chromeDriver setting    
     chromeDriver = webdriver.Chrome(chromeDriverLocation, options=chromeDriverOptions)
@@ -88,72 +86,79 @@ def storeMemberImage_Google(idx):
     # 2. Count images and download all
     XPATH_IMG = '//*[@id="Sva75c"]/div/div/div[3]/div[2]/c-wiz/div/div[1]/div[1]/div[2]/div[1]/a/img'
     images = chromeDriver.find_elements_by_css_selector('.rg_i.Q4LuWd')
-    print(gfMembers_ENG[idx] + '_img_count = ' + str(len(images)))
+    print(memberName + '_img_count = ' + str(len(images)))
 
     for i in range(0, len(images)):
         try:
-            errTitle = gfMembers_ENG[idx] + '(' + format(i, '05') + ') :'
             imgUrl = ''
-
-            # 2-1. click thumbnail to get larger image
             for cnt in range(5):
                 try:
                     images[i].click()
                     chromeWait.until(EC.presence_of_element_located((By.XPATH, XPATH_IMG)))
                     imgUrl = chromeDriver.find_element_by_xpath(XPATH_IMG).get_attribute('src')
-                    break
-                except selenium.common.exceptions.ElementClickInterceptedException: # when cannot click
+                    if imgUrl.startswith('http') == False and cnt < 4:
+                        time.sleep(1.5)
+                        continue
+                    else:
+                        break
+                except Exception as ex:
                     if cnt < 4:
                         time.sleep(3)
-                        pass
                     else:
-                        raise
-                except Exception:
-                    raise
+                         raise ex
 
             if imgUrl == '':
-                logger.writeErrorlog(errTitle, imgUrl, 'no url detected')
-                pass
+                logger.writeErrorlog('no url detected', imgUrl)
+                continue
             if imgUrl.startswith('http') == False:
-                logger.writeErrorlog(errTitle, imgUrl, 'abnormal img src')
-                pass
-            
-            # 2-2. store original image
-            imgDir = os.getcwd() + '/' + gfMembers_ENG[idx] + '/ORIGINAL/google_' + format(i, '05') + '.png'
+                logger.writeErrorlog('abnormal img src', imgUrl)
+                continue
+
+            imgDir = os.getcwd() + '/' + memberName + '/ORIGINAL/google_' + format(i, '05') + '.png'
             urllib.request.urlretrieve(imgUrl, imgDir)
-            
-            # 2-3. face detection and crop, store
-            # rgbImg = cv2.cvtColor(cv2.imread(imgDir), cv2.COLOR_BGR2RGB) # return numpy array type
-            # detector = MTCNN()
-            # results = detector.detect_faces(rgbImg)
-            # if len(results) == 1:
-            #     res = results[0]
-            #     x = res['box'][0]
-            #     y = res['box'][1]
-            #     w = res['box'][2]
-            #     h = res['box'][3]
-            #     cropImg = Image.fromarray(rgbImg[y : y + h, x : x + w])
-            #     cropImg.save(os.getcwd() + '/' + gfMembers_ENG[idx] + '/FACE/google_' + format(i, '05') + '.png')
-            # elif len(results) == 0:
-            #     logger.writeErrorlog(errTitle, imgUrl, 'no faces detected')
-            # else:   #len(results) > 1
-            #     logger.writeErrorlog(errTitle, imgUrl, '2 or more faces detected')
         except Exception as ex:
-            logger.writeErrorlog(errTitle, imgUrl, str(ex))
-            pass
-
+            logger.writeErrorlog(type(ex).__name__, str(i) + ' : ' + imgUrl + '\n' + str(ex))
+                
     chromeDriver.close()
-    print(gfMembers_ENG[idx] + ' finished')
+    print(memberName + ' finished')
 
-def scrapExit():
+def cropFace(idx, logger):
+    memberName = gfMembers_ENG[idx]
+    imgSet = os.listdir(os.getcwd() + '/' + memberName + '/ORIGINAL')
+    cnt = 0
+    for img in imgSet:
+        try:
+            imgDir = os.getcwd() + '/' + memberName + '/ORIGINAL/' + img
+            rgbImg = cv2.cvtColor(cv2.imread(imgDir), cv2.COLOR_BGR2RGB) # return numpy array type
+            detector = MTCNN()
+            results = detector.detect_faces(rgbImg)
+            if len(results) == 1:
+                res = results[0]
+                x = res['box'][0]
+                y = res['box'][1]
+                w = res['box'][2]
+                h = res['box'][3]
+                cropImg = Image.fromarray(rgbImg[y : y + h, x : x + w])
+                cropImg.save(os.getcwd() + '/' + memberName + '/FACE/google_' + format(cnt, '05') + '.png')
+                cnt += 1
+            elif len(results) == 0:
+                logger.writeErrorlog('no faces detected', imgDir)
+            else:   #len(results) > 1
+                logger.writeErrorlog('2 or more faces detected', imgDir)
+        except Exception as ex:
+            logger.writeErrorlog(type(ex).__name__, imgDir + '/n' + str(ex))
+
+def scrapWork(idx):
+    logger = ScrapLogger(gfMembers_ENG[idx])
+    storeMemberImage_Google(idx, logger)
+    cropFace(idx, logger)
     print('Finished!')
 
 # Main
-atexit.register(scrapExit)
 threadList = []
 for idx in range(0, 6):
     findOrCreateDirectory(idx)
-    th = threading.Thread(target=storeMemberImage_Google, args=(idx, ), name='thread_' + gfMembers_ENG[idx])
+    th = threading.Thread(target=scrapWork, args=(idx, ), name='thread_' + gfMembers_ENG[idx])
     th.start()
 
 for thread in threadList:
