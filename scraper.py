@@ -8,7 +8,7 @@ import os
 import time
 import threading
 import urllib.request
-import atexit
+import io
 import cv2
 from pathlib import Path
 from selenium import webdriver
@@ -29,6 +29,8 @@ chromeDriverLocation = os.getcwd() + '/chromedriver.exe'
 # selenium option
 chromeDriverOptions = webdriver.ChromeOptions()
 chromeDriverOptions.add_argument('log-level=3')  # to skip inevitable handshake err log
+chromeDriverOptions.add_argument("--ignore-certificate-error")
+chromeDriverOptions.add_argument("--ignore-ssl-errors")
 chromeDriverOptions.add_argument("--disable-extensions")
 chromeDriverOptions.add_argument("disable-infobars")
 chromeDriverOptions.add_argument('window-size=1920x1080') 
@@ -87,38 +89,43 @@ def storeMemberImage_Google(idx, logger):
     XPATH_IMG = '//*[@id="Sva75c"]/div/div/div[3]/div[2]/c-wiz/div/div[1]/div[1]/div[2]/div[1]/a/img'
     images = chromeDriver.find_elements_by_css_selector('.rg_i.Q4LuWd')
     print(memberName + '_img_count = ' + str(len(images)))
-
+    maxTry = 5
+    lastTry = maxTry - 1
     for i in range(0, len(images)):
-        try:
-            imgUrl = ''
-            for cnt in range(5):
-                try:
-                    images[i].click()
-                    chromeWait.until(EC.presence_of_element_located((By.XPATH, XPATH_IMG)))
-                    imgUrl = chromeDriver.find_element_by_xpath(XPATH_IMG).get_attribute('src')
-                    if imgUrl.startswith('http') == False and cnt < 4:
+        for tryCnt in range(maxTry):
+            try:
+                imgUrl = ''
+                images[i].click()
+                chromeWait.until(EC.presence_of_element_located((By.XPATH, XPATH_IMG)))
+                imgUrl = chromeDriver.find_element_by_xpath(XPATH_IMG).get_attribute('src')
+                if imgUrl.startswith('http') == False or imgUrl == '':
+                    if tryCnt == lastTry:
+                        print(memberName + ' : abnormal img src url')
+                        logger.writeErrorlog('abnormal img src url', imgUrl)
+                        break
+                    else:
                         time.sleep(1.5)
                         continue
-                    else:
+
+                imgData = Image.open(io.BytesIO(urllib.request.urlopen(imgUrl).read()))
+                if imgData.width <= 300 or imgData.height <= 300:
+                    if tryCnt == lastTry:
+                        print(memberName + ' : too small image')
+                        logger.writeErrorlog('too small image', imgUrl)
                         break
-                except Exception as ex:
-                    if cnt < 4:
-                        time.sleep(3)
                     else:
-                         raise ex
+                        time.sleep(1.5)
+                        continue                        
 
-            if imgUrl == '':
-                logger.writeErrorlog('no url detected', imgUrl)
-                continue
-            if imgUrl.startswith('http') == False:
-                logger.writeErrorlog('abnormal img src', imgUrl)
-                continue
+                imgData.save(os.getcwd() + '/' + memberName + '/ORIGINAL/google_' + format(i, '05') + '.png')
+                break
+            except Exception as ex:
+                if tryCnt == lastTry:
+                    print(memberName + ' : ' + type(ex).__name__)
+                    logger.writeErrorlog(type(ex).__name__, str(i) + ' : ' + imgUrl + '\n' + str(ex))
+                else:
+                    time.sleep(2)                    
 
-            imgDir = os.getcwd() + '/' + memberName + '/ORIGINAL/google_' + format(i, '05') + '.png'
-            urllib.request.urlretrieve(imgUrl, imgDir)
-        except Exception as ex:
-            logger.writeErrorlog(type(ex).__name__, str(i) + ' : ' + imgUrl + '\n' + str(ex))
-                
     chromeDriver.close()
     print(memberName + ' finished')
 
@@ -149,6 +156,7 @@ def cropFace(idx, logger):
             logger.writeErrorlog(type(ex).__name__, imgDir + '/n' + str(ex))
 
 def scrapWork(idx):
+    findOrCreateDirectory(idx)
     logger = ScrapLogger(gfMembers_ENG[idx])
     storeMemberImage_Google(idx, logger)
     cropFace(idx, logger)
@@ -157,7 +165,6 @@ def scrapWork(idx):
 # Main
 threadList = []
 for idx in range(0, 6):
-    findOrCreateDirectory(idx)
     th = threading.Thread(target=scrapWork, args=(idx, ), name='thread_' + gfMembers_ENG[idx])
     th.start()
 
