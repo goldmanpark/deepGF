@@ -8,21 +8,21 @@ from pathlib import Path
 # /LOG
 #   -/ERROR
 #       -20210725_134030_SOWON.log
-#   -/COMPLETE
+#   -/PROCESS
 #       -20210725_141032_SOWON.log
 
 class ScrapLogger:
     def __init__(self, memberName):
         Path(os.getcwd() + '/LOG').mkdir(parents=True, exist_ok=True)
         Path(os.getcwd() + '/LOG/ERROR').mkdir(parents=True, exist_ok=True)
-        Path(os.getcwd() + '/LOG/COMPLETE').mkdir(parents=True, exist_ok=True)
+        Path(os.getcwd() + '/LOG/PROCESS').mkdir(parents=True, exist_ok=True)
 
         errLogName = os.getcwd() + '/LOG/ERROR/' + datetime.datetime.now().strftime('%Y%m%d_%H%M%S') + '_' + memberName + '.log'
         self.errlog = logging.getLogger(memberName + 'errlog')
         self.errlog.setLevel(logging.ERROR)
         self.errlog.addHandler(logging.FileHandler(errLogName))
         
-        infoLogName = os.getcwd() + '/LOG/COMPLETE/' + datetime.datetime.now().strftime('%Y%m%d_%H%M%S') + '_' + memberName + '.log'
+        infoLogName = os.getcwd() + '/LOG/PROCESS/' + datetime.datetime.now().strftime('%Y%m%d_%H%M%S') + '_' + memberName + '.log'
         self.infolog = logging.getLogger(memberName + 'infolog')
         self.infolog.setLevel(logging.INFO)
         self.infolog.addHandler(logging.FileHandler(infoLogName))

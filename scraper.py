@@ -25,7 +25,12 @@ from scrap_Logger import ScrapLogger
 gfMembers_KOR = ['소원', '예린', '은하', '유주', '신비', '엄지']
 gfMembers_ENG = ['SOWON', 'YERIN', 'EUNHA', 'YUJU', 'SINB', 'UMJI']
 threadStart = [False, False, False, False, False, False]
-chromeDriverLocation = os.getcwd() + '/chromedriver.exe'
+
+# directory path
+chromeDriverPath = os.getcwd() + '/chromedriver.exe'
+ORIGINAL_PATH = os.getcwd() + '/ORIGINAL/'
+UNFIXED_PATH =  os.getcwd() + '/UNFIXED/'
+DATA_PATH = os.getcwd() + '/DATA/'
 
 # selenium option
 chromeDriverOptions = webdriver.ChromeOptions()
@@ -46,9 +51,9 @@ urllib.request.install_opener(opener)
 
 def findOrCreateDirectory(idx):
     try:
-        Path(os.getcwd() + '/' + gfMembers_ENG[idx]).mkdir(parents=True, exist_ok=True)
-        Path(os.getcwd() + '/' + gfMembers_ENG[idx] + '/ORIGINAL').mkdir(parents=True, exist_ok=True)
-        Path(os.getcwd() + '/' + gfMembers_ENG[idx] + '/FACE').mkdir(parents=True, exist_ok=True)
+        Path(ORIGINAL_PATH + gfMembers_ENG[idx]).mkdir(parents=True, exist_ok=True)
+        Path(UNFIXED_PATH + gfMembers_ENG[idx]).mkdir(parents=True, exist_ok=True)
+        Path(DATA_PATH + gfMembers_ENG[idx]).mkdir(parents=True, exist_ok=True)
     except Exception as e:
         print(e)
 
@@ -56,7 +61,7 @@ def storeMemberImage_Google(idx, logger):
     memberName = gfMembers_ENG[idx]
 
     # chromeDriver setting    
-    chromeDriver = webdriver.Chrome(chromeDriverLocation, options=chromeDriverOptions)
+    chromeDriver = webdriver.Chrome(chromeDriverPath, options=chromeDriverOptions)
     chromeDriver.set_window_size(1920, 1080)
     chromeDriver.implicitly_wait(3)
     chromeWait = WebDriverWait(chromeDriver, 10, poll_frequency=1)
@@ -123,7 +128,7 @@ def storeMemberImage_Google(idx, logger):
                             time.sleep(1.5)
                             continue
 
-                    imgData.save(os.getcwd() + '/' + memberName + '/ORIGINAL/google_' + format(i, '05') + '.png')
+                    imgData.save(ORIGINAL_PATH + memberName + '/google_' + format(i, '05') + '.png')
                     compFlag = True
                     break
                 except Exception as ex:
@@ -144,40 +149,52 @@ def storeMemberImage_Google(idx, logger):
     chromeDriver.close()
     logger.writeProcesslog('scrap end', 'image scrapped: ' + str(len(os.listdir(os.getcwd() + '/' + memberName + '/ORIGINAL'))))
 
+def createCroppedImg(original, face):
+    x = face['box'][0]
+    y = face['box'][1]
+    w = face['box'][2]
+    h = face['box'][3]
+    if w <= 35 or h <= 35:
+        return None #too small
+    return Image.fromarray(original[y : y + h, x : x + w]).convert('L')
+
 def cropFace(idx, logger):
     memberName = gfMembers_ENG[idx]
-    imgSet = os.listdir(os.getcwd() + '/' + memberName + '/ORIGINAL')
+    imgSet = os.listdir(ORIGINAL_PATH + memberName)
     cnt = 0
     logger.writeProcesslog('crop start', 'target image: ' + str(len(imgSet)))
     for img in imgSet:
         try:
-            imgDir = os.getcwd() + '/' + memberName + '/ORIGINAL/' + img
+            imgDir = ORIGINAL_PATH + memberName + '/' + img
             rgbImg = cv2.cvtColor(cv2.imread(imgDir), cv2.COLOR_BGR2RGB) # return numpy array type
             detector = MTCNN()
             results = detector.detect_faces(rgbImg)
             if len(results) == 0:
                 logger.writeErrorlog('no faces detected', imgDir)
+            elif len(results) == 1:
+                cropImg = createCroppedImg(rgbImg, results[0])
+                if cropImg:
+                    cropImg.save(DATA_PATH + memberName + '/' + format(cnt, '05') + '.png')
+                    cnt += 1
             else:
                 cnts = []
                 for res in results:
-                    x = res['box'][0]
-                    y = res['box'][1]
-                    w = res['box'][2]
-                    h = res['box'][3]
-                    cropImg = Image.fromarray(rgbImg[y : y + h, x : x + w])
-                    cropImg.save(os.getcwd() + '/' + memberName + '/FACE/google_' + format(cnt, '05') + '.png')
-                    cnt += 1
-                    cnts.append(format(cnt, '05'))
-                if len(results) > 1:
+                    cropImg = createCroppedImg(rgbImg, res)
+                    if cropImg:
+                        cropImg.save(UNFIXED_PATH + memberName + '/' + memberName + '_' + format(cnt, '05') + '.png')                    
+                        cnts.append(format(cnt, '05'))
+                        cnt += 1
+                if len(cnts) > 1:
                     logger.writeErrorlog('2 or more faces detected : ' + str(cnts), imgDir)
         except Exception as ex:
             logger.writeErrorlog(type(ex).__name__, imgDir + '/n' + str(ex))
-    logger.writeProcesslog('crop end', 'result image: ' + str(len(os.getcwd() + '/' + memberName + '/FACE')))
+    logger.writeProcesslog('crop end', 'face images: ' + str(len(os.listdir(DATA_PATH + memberName ))))
+    logger.writeProcesslog('crop end', 'unfixed face images: ' + str(len(os.listdir(UNFIXED_PATH + memberName))))
 
 def scrapWork(idx):
     logger = ScrapLogger(gfMembers_ENG[idx])
     findOrCreateDirectory(idx)    
-    #storeMemberImage_Google(idx, logger)
+    storeMemberImage_Google(idx, logger)
     cropFace(idx, logger)
     print(gfMembers_ENG[idx] + ' finished')
 

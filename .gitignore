@@ -2,16 +2,9 @@
 /phantomjs*
 *.exe
 
-# image directory
-/SOWON
-/YERIN
-/EUNHA
-/YUJU
-/SINB
-/UMJI
-
-# error log directory
+# directory
 /LOG
-
-# cache
+/ORIGINAL
+/UNFIXED
+/DATA
 /__pycache__
