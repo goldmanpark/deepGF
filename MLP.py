@@ -1,6 +1,7 @@
 # ref
 # https://076923.github.io/posts/Python-opencv-8/
 # https://keras.io/examples/vision/image_classification_from_scratch/
+# https://sayak.dev/tf.keras/data_augmentation/image/2020/05/10/augmemtation-recipes.html
 
 import os
 import cv2
@@ -12,8 +13,6 @@ from tensorflow.keras import layers
 
 # global
 gfMembers_ENG = ['SOWON', 'YERIN', 'EUNHA', 'YUJU', 'SINB', 'UMJI']
-dataHeight = 0
-dataWidth = 0
 train_ds = {}
 val_ds = {}
 
@@ -44,7 +43,7 @@ def get_dsize():
     print('avg height : ' + str(dataHeight))
     print('avg width : ' + str(dataWidth))
     print('time consumption : ' + str(end - start))
-
+    return (dataWidth, dataHeight)
     # for img in images:
     #     if img.shape[0] < dataHeight and img.shape[1] < dataWidth:
     #         adjustedImgList.append(cv2.resize(img, dsize=(dataWidth, dataHeight), interpolation=cv2.INTER_CUBIC))
@@ -52,32 +51,38 @@ def get_dsize():
     #         adjustedImgList.append(cv2.resize(img, dsize=(dataWidth, dataHeight), interpolation=cv2.INTER_AREA))
 
 # Main
-get_dsize()
+dataSize = get_dsize()
 
 seed = random.randint(1, 1000)
 train_ds = keras.preprocessing.image_dataset_from_directory(
     directory=DATA_PATH,
-    image_size=(dataWidth, dataHeight),
+    image_size=dataSize,
     color_mode='grayscale',
     smart_resize=True,
     validation_split=0.2,
     subset='training',
-    seed=seed
+    seed=seed,
+    batch_size=12,
+    label_mode='categorical'
 )
 val_ds = keras.preprocessing.image_dataset_from_directory(
     directory=DATA_PATH,
-    image_size=(dataWidth, dataHeight),
+    image_size=dataSize,
     color_mode='grayscale',
     smart_resize=True,
     validation_split=0.2,
     subset='validation',
-    seed=seed
+    seed=seed,
+    batch_size=12,
+    label_mode='categorical'
 )
 model = keras.Sequential()
-model.add(layers.Flatten(input_shape=[dataWidth, dataHeight]))
+model.add(layers.Flatten(input_shape=dataSize))
 model.add(layers.Dense(128, activation='relu'))
 model.add(layers.Dense(6, activation='softmax'))
 model.summary()
-model.compile(loss='binary_crossentropy', optimizer='sgd', metrics=['accuracy'])
+model.compile(loss='categorical_crossentropy', optimizer='rmsprop', metrics=['accuracy'])
 
+train_ds = train_ds.prefetch(buffer_size=32)
+val_ds = val_ds.prefetch(buffer_size=32)
 history = model.fit(train_ds, epochs=10, validation_data=val_ds)

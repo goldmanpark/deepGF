@@ -147,7 +147,7 @@ def storeMemberImage_Google(idx, logger):
             logger.writeProcesslog(str(i) + ' : ERROR', str(endDttm - startDttm))
 
     chromeDriver.close()
-    logger.writeProcesslog('scrap end', 'image scrapped: ' + str(len(os.listdir(os.getcwd() + '/' + memberName + '/ORIGINAL'))))
+    logger.writeProcesslog('scrap end', 'image scrapped: ' + str(len(os.listdir(ORIGINAL_PATH + memberName))))
 
 def createCroppedImg(original, face):
     x = face['box'][0]
@@ -193,8 +193,8 @@ def cropFace(idx, logger):
 
 def scrapWork(idx):
     logger = ScrapLogger(gfMembers_ENG[idx])
-    findOrCreateDirectory(idx)    
-    storeMemberImage_Google(idx, logger)
+    #findOrCreateDirectory(idx)    
+    #storeMemberImage_Google(idx, logger)
     cropFace(idx, logger)
     print(gfMembers_ENG[idx] + ' finished')
 
