@@ -10,6 +10,7 @@ import datetime
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
+import matplotlib.pyplot as plt
 
 # global
 gfMembers_ENG = ['SOWON', 'YERIN', 'EUNHA', 'YUJU', 'SINB', 'UMJI']
@@ -43,7 +44,7 @@ def get_dsize():
     print('avg height : ' + str(dataHeight))
     print('avg width : ' + str(dataWidth))
     print('time consumption : ' + str(end - start))
-    return (dataWidth, dataHeight)
+    return (dataHeight, dataWidth)
     # for img in images:
     #     if img.shape[0] < dataHeight and img.shape[1] < dataWidth:
     #         adjustedImgList.append(cv2.resize(img, dsize=(dataWidth, dataHeight), interpolation=cv2.INTER_CUBIC))
@@ -56,33 +57,55 @@ dataSize = get_dsize()
 seed = random.randint(1, 1000)
 train_ds = keras.preprocessing.image_dataset_from_directory(
     directory=DATA_PATH,
+    subset='training',
+    label_mode='categorical',
+    validation_split=0.2,
     image_size=dataSize,
     color_mode='grayscale',
     smart_resize=True,
-    validation_split=0.2,
-    subset='training',
-    seed=seed,
-    batch_size=12,
-    label_mode='categorical'
+    seed=seed
 )
 val_ds = keras.preprocessing.image_dataset_from_directory(
     directory=DATA_PATH,
+    subset='validation',
+    label_mode='categorical',
+    validation_split=0.2,
     image_size=dataSize,
     color_mode='grayscale',
     smart_resize=True,
-    validation_split=0.2,
-    subset='validation',
-    seed=seed,
-    batch_size=12,
-    label_mode='categorical'
+    seed=seed
 )
+
+# plt.figure(figsize=(10, 10))
+# for images, labels in train_ds.take(1):
+#     for i in range(9):
+#         ax = plt.subplot(3, 3, i + 1)
+#         plt.imshow(images[i].numpy().astype("uint8"))
+#         plt.axis("off")
+# plt.show()
+
+
 model = keras.Sequential()
+model.add(layers.experimental.preprocessing.RandomFlip('horizontal', input_shape=(dataSize[0], dataSize[1], 1)))
+model.add(layers.experimental.preprocessing.RandomRotation(0.1))
+model.add(layers.experimental.preprocessing.RandomZoom(0.1))
 model.add(layers.Flatten(input_shape=dataSize))
 model.add(layers.Dense(128, activation='relu'))
+model.add(layers.Dense(64, activation='relu'))
+model.add(layers.Dense(32, activation='relu'))
+model.add(layers.Dense(16, activation='relu'))
 model.add(layers.Dense(6, activation='softmax'))
 model.summary()
-model.compile(loss='categorical_crossentropy', optimizer='rmsprop', metrics=['accuracy'])
+model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
 
 train_ds = train_ds.prefetch(buffer_size=32)
 val_ds = val_ds.prefetch(buffer_size=32)
-history = model.fit(train_ds, epochs=10, validation_data=val_ds)
+history = model.fit(train_ds, epochs=15, validation_data=val_ds)
+
+plt.plot(history.history['accuracy'])
+plt.plot(history.history['val_accuracy'])
+plt.title('Model accuracy')
+plt.xlabel('Epoch')
+plt.ylabel('Accuracy')
+plt.legend(['Train', 'Test'], loc='upper left')
+plt.show()
