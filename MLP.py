@@ -6,7 +6,6 @@
 import os
 import cv2
 import random
-import datetime
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
@@ -25,7 +24,6 @@ def get_dsize():
     totalHeight = 0
     totalWidth = 0
     images = []
-    start = datetime.datetime.now()
     for member in gfMembers_ENG:
         dirPath = DATA_PATH + member +'/'
         imgPaths = os.listdir(dirPath)        
@@ -38,18 +36,11 @@ def get_dsize():
     # uniform image size
     dataHeight = totalHeight // len(images)
     dataWidth = totalWidth // len(images)
-    end = datetime.datetime.now()
 
     print('data count : ' + str(len(images)))
     print('avg height : ' + str(dataHeight))
     print('avg width : ' + str(dataWidth))
-    print('time consumption : ' + str(end - start))
-    return (dataHeight, dataWidth)
-    # for img in images:
-    #     if img.shape[0] < dataHeight and img.shape[1] < dataWidth:
-    #         adjustedImgList.append(cv2.resize(img, dsize=(dataWidth, dataHeight), interpolation=cv2.INTER_CUBIC))
-    #     else:
-    #         adjustedImgList.append(cv2.resize(img, dsize=(dataWidth, dataHeight), interpolation=cv2.INTER_AREA))
+    return (int(dataHeight * 0.5), int(dataWidth * 0.5))
 
 # Main
 dataSize = get_dsize()
@@ -76,36 +67,55 @@ val_ds = keras.preprocessing.image_dataset_from_directory(
     seed=seed
 )
 
-# plt.figure(figsize=(10, 10))
-# for images, labels in train_ds.take(1):
-#     for i in range(9):
-#         ax = plt.subplot(3, 3, i + 1)
-#         plt.imshow(images[i].numpy().astype("uint8"))
-#         plt.axis("off")
-# plt.show()
+def getLabelClassIndex(classNames, numpyArr):
+    i = 0
+    for n in numpyArr:
+        if n == 1.:
+            return classNames[i]
+        i += 1
+    return 'ERROR'
 
+plt.figure(figsize=(10, 10))
+for images, labels in train_ds.take(1):
+    for i in range(9):
+        ax = plt.subplot(3, 3, i + 1)
+        plt.imshow(images[i].numpy().astype("uint8"), cmap='gray', vmin = 0, vmax = 255)
+        plt.title(getLabelClassIndex(train_ds.class_names, labels[i].numpy()))
+        plt.axis("off")
+plt.show()
 
 model = keras.Sequential()
 model.add(layers.experimental.preprocessing.RandomFlip('horizontal', input_shape=(dataSize[0], dataSize[1], 1)))
-model.add(layers.experimental.preprocessing.RandomRotation(0.1))
-model.add(layers.experimental.preprocessing.RandomZoom(0.1))
+model.add(layers.experimental.preprocessing.RandomRotation(0.25))
 model.add(layers.Flatten(input_shape=dataSize))
-model.add(layers.Dense(128, activation='relu'))
-model.add(layers.Dense(64, activation='relu'))
-model.add(layers.Dense(32, activation='relu'))
-model.add(layers.Dense(16, activation='relu'))
+model.add(layers.Dense(6 * 128, activation='relu'))
+model.add(layers.Dense(6 * 64, activation='relu'))
+model.add(layers.Dense(6 * 32, activation='relu'))
+model.add(layers.Dense(6 * 16, activation='relu'))
+model.add(layers.Dense(6 * 8, activation='relu'))
+model.add(layers.Dense(6 * 4, activation='relu'))
+model.add(layers.Dense(6 * 2, activation='relu'))
 model.add(layers.Dense(6, activation='softmax'))
 model.summary()
 model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
 
 train_ds = train_ds.prefetch(buffer_size=32)
 val_ds = val_ds.prefetch(buffer_size=32)
-history = model.fit(train_ds, epochs=15, validation_data=val_ds)
+history = model.fit(train_ds, epochs=50, validation_data=val_ds)
 
+plt.subplot(1, 2, 1)
 plt.plot(history.history['accuracy'])
 plt.plot(history.history['val_accuracy'])
 plt.title('Model accuracy')
 plt.xlabel('Epoch')
 plt.ylabel('Accuracy')
-plt.legend(['Train', 'Test'], loc='upper left')
+plt.legend(['Train', 'Val'], loc='upper left')
+
+plt.subplot(1, 2, 2)
+plt.plot(history.history['loss'])
+plt.plot(history.history['val_loss'])
+plt.title('Model Loss')
+plt.xlabel('Epoch')
+plt.ylabel('Loss')
+plt.legend(['Train', 'Val'], loc='upper left')
 plt.show()
