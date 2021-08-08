@@ -193,8 +193,8 @@ def cropFace(idx, logger):
 
 def scrapWork(idx):
     logger = ScrapLogger(gfMembers_ENG[idx])
-    #findOrCreateDirectory(idx)    
-    #storeMemberImage_Google(idx, logger)
+    findOrCreateDirectory(idx)
+    storeMemberImage_Google(idx, logger)
     cropFace(idx, logger)
     print(gfMembers_ENG[idx] + ' finished')
 
