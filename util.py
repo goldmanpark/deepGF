@@ -1,6 +1,9 @@
 import os
+import datetime
+from pathlib import Path
 import cv2
 import matplotlib.pyplot as plt
+import pandas as pd
 
 gfMembers_ENG = ['SOWON', 'YERIN', 'EUNHA', 'YUJU', 'SINB', 'UMJI']
 
@@ -61,3 +64,33 @@ def draw_HistoryResult(hist):
     plt.ylabel('Loss')
     plt.legend(['Train', 'Val'], loc='upper left')
     plt.show()
+
+def save_HistoryResult(_type, start, model, history):
+    PATH = os.getcwd() + '/LOG/' + _type
+    CURR = datetime.datetime.now()
+
+    Path(PATH).mkdir(parents=True, exist_ok=True)
+
+    # log(mode, history)
+    with open(PATH + '/' + CURR.strftime('%Y%m%d_%H%M%S') + '_hist.json', mode='w') as f:
+        pd.DataFrame(history.history).to_json(f, indent=4)
+    with open(PATH + '/' + CURR.strftime('%Y%m%d_%H%M%S') + '_model.json', mode='w') as f:
+        f.write(model.to_json(indent=4))
+
+    # save image
+    plt.subplot(1, 2, 1)
+    plt.plot(history.history['accuracy'])
+    plt.plot(history.history['val_accuracy'])
+    plt.title('Model Accuracy')
+    plt.xlabel('Epoch')
+    plt.ylabel('Accuracy')
+    plt.legend(['Train', 'Val'], loc='upper left')
+
+    plt.subplot(1, 2, 2)
+    plt.plot(history.history['loss'])
+    plt.plot(history.history['val_loss'])
+    plt.title('Model Loss')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.legend(['Train', 'Val'], loc='upper left')    
+    plt.savefig(PATH + '/' + CURR.strftime('%Y%m%d_%H%M%S') + '.png')

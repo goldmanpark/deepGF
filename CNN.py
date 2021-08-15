@@ -1,4 +1,5 @@
 import os
+import datetime
 import random
 import tensorflow as tf
 from tensorflow import keras
@@ -6,7 +7,7 @@ from tensorflow.keras import layers
 import util
 
 DATA_PATH = os.getcwd() + '/DATA/'
-dataSize = util.get_ModifiedAverageSize(DATA_PATH, 0.9)
+dataSize = util.get_ModifiedAverageSize(DATA_PATH, 0.75)
 seed = random.randint(1, 1000)
 
 train_ds = keras.preprocessing.image_dataset_from_directory(
@@ -29,8 +30,11 @@ val_ds = keras.preprocessing.image_dataset_from_directory(
     smart_resize=True,
     seed=seed
 )
+#util.draw_Sample(train_ds, width=4, height=3)
 
 model = keras.Sequential()
+# model.add(layers.experimental.preprocessing.RandomFlip('horizontal', input_shape=(dataSize[0], dataSize[1], 1)))
+# model.add(layers.experimental.preprocessing.RandomRotation(0.25))
 model.add(layers.Conv2D(16, (10, 10), activation='relu', padding='same', input_shape=(dataSize[0], dataSize[1], 1)))
 model.add(layers.MaxPool2D())
 model.add(layers.Conv2D(32, (8, 8), activation='relu', padding='same'))
@@ -49,5 +53,8 @@ model.add(layers.Dense(6, activation='softmax'))
 model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
 train_ds = train_ds.prefetch(buffer_size=32)
 val_ds = val_ds.prefetch(buffer_size=32)
-history = model.fit(train_ds, epochs=30, validation_data=val_ds)
+
+startTime = datetime.datetime.now()
+history = model.fit(train_ds, epochs=2, validation_data=val_ds)
+util.save_HistoryResult('CNN', startTime, model, history)
 util.draw_HistoryResult(history)
