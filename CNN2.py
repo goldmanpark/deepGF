@@ -4,38 +4,43 @@ import random
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
 import util
 
 DATA_PATH = os.getcwd() + '/DATA/'
-dataSize = util.get_ModifiedAverageSize(DATA_PATH, 0.75)
-seed = random.randint(1, 1000)
+BATCH_SIZE = 16
+IMG_SIZE_RATIO = 0.75
+EPOCH = 50
+(DATA_HEIGHT, DATA_WIDTH) = util.get_ModifiedAverageSize(DATA_PATH, IMG_SIZE_RATIO)
 
-train_ds = keras.preprocessing.image_dataset_from_directory(
+image_generator = ImageDataGenerator( 
+    horizontal_flip=True, 
+    rotation_range=10,
+    validation_split=0.2
+)
+seed = random.randint(1, 1000)
+train_ds = image_generator.flow_from_directory(
     directory=DATA_PATH,
     subset='training',
-    label_mode='categorical',
-    validation_split=0.2,
-    image_size=dataSize,
+    target_size=(DATA_HEIGHT, DATA_WIDTH),
+    batch_size=BATCH_SIZE,
     color_mode='grayscale',
-    smart_resize=True,
+    shuffle=True,
     seed=seed
 )
-val_ds = keras.preprocessing.image_dataset_from_directory(
+val_ds = image_generator.flow_from_directory(
     directory=DATA_PATH,
     subset='validation',
-    label_mode='categorical',
-    validation_split=0.2,
-    image_size=dataSize,
+    target_size=(DATA_HEIGHT, DATA_WIDTH),
+    batch_size=BATCH_SIZE,
     color_mode='grayscale',
-    smart_resize=True,
+    shuffle=True,
     seed=seed
 )
-#util.draw_Sample(train_ds, width=4, height=3)
+util.show_Sample_from_DirectoryIterator(train_ds, 4, 4)
 
 model = keras.Sequential()
-# model.add(layers.experimental.preprocessing.RandomFlip('horizontal', input_shape=(dataSize[0], dataSize[1], 1)))
-# model.add(layers.experimental.preprocessing.RandomRotation(0.25))
-model.add(layers.Conv2D(16, (10, 10), activation='relu', padding='same', input_shape=(dataSize[0], dataSize[1], 1)))
+model.add(layers.Conv2D(16, (10, 10), activation='relu', padding='same', input_shape=(DATA_HEIGHT, DATA_WIDTH, 1)))
 model.add(layers.MaxPool2D())
 model.add(layers.Conv2D(32, (8, 8), activation='relu', padding='same'))
 model.add(layers.MaxPool2D())
@@ -51,10 +56,7 @@ model.add(layers.Dropout(0.5))
 model.add(layers.Dense(6, activation='softmax'))
 
 model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
-train_ds = train_ds.prefetch(buffer_size=32)
-val_ds = val_ds.prefetch(buffer_size=32)
 
 startTime = datetime.datetime.now()
-history = model.fit(train_ds, epochs=2, validation_data=val_ds)
+history = model.fit(train_ds, epochs=EPOCH, validation_data=val_ds)
 util.save_HistoryResult('CNN', startTime, model, history)
-util.draw_HistoryResult(history)

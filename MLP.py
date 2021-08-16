@@ -34,7 +34,7 @@ val_ds = keras.preprocessing.image_dataset_from_directory(
     smart_resize=True,
     seed=seed
 )
-util.draw_Sample(train_ds, width=4, height=3)
+util.show_Sample_from_Dataset(train_ds, width=4, height=3)
 model = keras.Sequential()
 model.add(layers.experimental.preprocessing.RandomFlip('horizontal', input_shape=(dataSize[0], dataSize[1], 1)))
 model.add(layers.experimental.preprocessing.RandomRotation(0.25))

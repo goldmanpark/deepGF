@@ -30,7 +30,7 @@ def get_ModifiedAverageSize(dataPath, modifier):
     print('avg width : ' + str(dataWidth))
     return (int(dataHeight * modifier), int(dataWidth * modifier))
 
-def getLabelClassIndex(classNames, numpyArr):
+def getClassName_from_Dataset(classNames, numpyArr):
     i = 0
     for n in numpyArr:
         if n == 1.:
@@ -38,12 +38,30 @@ def getLabelClassIndex(classNames, numpyArr):
         i += 1
     return 'ERROR'
 
-def draw_Sample(dataset, width, height):
+def show_Sample_from_Dataset(dataset, width, height):
     for images, labels in dataset.take(1):
         for i in range(width * height):
             ax = plt.subplot(height, width, i + 1)
             plt.imshow(images[i].numpy().astype("uint8"), cmap='gray', vmin = 0, vmax = 255)
-            plt.title(getLabelClassIndex(dataset.class_names, labels[i].numpy()))
+            plt.title(getClassName_from_Dataset(dataset.class_names, labels[i].numpy()))
+            plt.axis("off")
+    plt.show()
+
+def getClassName_from_DirectoryIterator(classIndices, arr):
+    lst = list(classIndices.items())
+    i = 0
+    for n in arr:
+        if n == 1.:
+            return lst[i][0]
+        i += 1
+    return 'ERROR'
+
+def show_Sample_from_DirectoryIterator(dicIter, width, height):
+    images, labels = next(dicIter)
+    for i in range(width * height):
+            ax = plt.subplot(height, width, i + 1)
+            plt.imshow(images[i], cmap='gray')
+            plt.title(getClassName_from_DirectoryIterator(dicIter.class_indices, labels[i]))
             plt.axis("off")
     plt.show()
 
@@ -72,8 +90,6 @@ def save_HistoryResult(_type, start, model, history):
     Path(PATH).mkdir(parents=True, exist_ok=True)
 
     # log(mode, history)
-    with open(PATH + '/' + CURR.strftime('%Y%m%d_%H%M%S') + '_hist.json', mode='w') as f:
-        pd.DataFrame(history.history).to_json(f, indent=4)
     with open(PATH + '/' + CURR.strftime('%Y%m%d_%H%M%S') + '_model.json', mode='w') as f:
         f.write(model.to_json(indent=4))
 
