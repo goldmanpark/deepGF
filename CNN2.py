@@ -1,3 +1,6 @@
+# CNN2 : using flow_from_directory, 
+# class 'tensorflow.python.keras.preprocessing.image.DirectoryIterator'
+
 import os
 import datetime
 import random
@@ -5,17 +8,19 @@ import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
-import util
+import util, CNN_MODEL
 
 DATA_PATH = os.getcwd() + '/DATA/'
 BATCH_SIZE = 16
-IMG_SIZE_RATIO = 0.75
-EPOCH = 50
-(DATA_HEIGHT, DATA_WIDTH) = util.get_ModifiedAverageSize(DATA_PATH, IMG_SIZE_RATIO)
+IMG_SIZE_RATIO = 0.9
+EPOCH = 100
+#(DATA_HEIGHT, DATA_WIDTH) = util.get_ModifiedAverageSize(DATA_PATH, IMG_SIZE_RATIO)
+(DATA_HEIGHT, DATA_WIDTH) = util.get_MinimalSize(DATA_PATH)
 
 image_generator = ImageDataGenerator( 
     horizontal_flip=True, 
-    rotation_range=10,
+    rotation_range=5,
+    brightness_range=(0.2, 0.8),
     validation_split=0.2
 )
 seed = random.randint(1, 1000)
@@ -39,23 +44,7 @@ val_ds = image_generator.flow_from_directory(
 )
 util.show_Sample_from_DirectoryIterator(train_ds, 4, 4)
 
-model = keras.Sequential()
-model.add(layers.Conv2D(16, (10, 10), activation='relu', padding='same', input_shape=(DATA_HEIGHT, DATA_WIDTH, 1)))
-model.add(layers.MaxPool2D())
-model.add(layers.Conv2D(32, (8, 8), activation='relu', padding='same'))
-model.add(layers.MaxPool2D())
-model.add(layers.Conv2D(64, (5, 5), activation='relu', padding='same'))
-model.add(layers.MaxPool2D())
-model.add(layers.Conv2D(128, (3, 3), activation='relu', padding='same'))
-model.add(layers.MaxPool2D())
-model.add(layers.Flatten())
-model.add(layers.Dense(128, activation='relu'))
-model.add(layers.Dropout(0.5))
-model.add(layers.Dense(64, activation='relu'))
-model.add(layers.Dropout(0.5))
-model.add(layers.Dense(6, activation='softmax'))
-
-model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+model = CNN_MODEL.get_CNN_model1((DATA_HEIGHT, DATA_WIDTH, 1))
 
 startTime = datetime.datetime.now()
 history = model.fit(train_ds, epochs=EPOCH, validation_data=val_ds)

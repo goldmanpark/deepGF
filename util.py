@@ -11,24 +11,43 @@ def get_ModifiedAverageSize(dataPath, modifier):
     # get images and label
     totalHeight = 0
     totalWidth = 0
-    images = []
+    amount = 0
     for member in gfMembers_ENG:
         dirPath = dataPath + member +'/'
-        imgPaths = os.listdir(dirPath)        
+        imgPaths = os.listdir(dirPath)
         for path in imgPaths:
             img = cv2.imread(dirPath + path, cv2.IMREAD_GRAYSCALE)
-            images.append(img)
+            amount += 1
             totalHeight += img.shape[0]
             totalWidth += img.shape[1]
     
     # uniform image size
-    dataHeight = totalHeight // len(images)
-    dataWidth = totalWidth // len(images)
-
-    print('data count : ' + str(len(images)))
+    dataHeight = totalHeight // amount
+    dataWidth = totalWidth // amount
+    print('data count : ' + str(amount))
     print('avg height : ' + str(dataHeight))
     print('avg width : ' + str(dataWidth))
     return (int(dataHeight * modifier), int(dataWidth * modifier))
+
+def get_MinimalSize(dataPath):
+    heights = []
+    widths = []
+    amount = 0
+    for member in gfMembers_ENG:
+        dirPath = dataPath + member +'/'
+        imgPaths = os.listdir(dirPath)
+        for path in imgPaths:
+            img = cv2.imread(dirPath + path, cv2.IMREAD_GRAYSCALE)
+            amount += 1
+            heights.append(img.shape[0])
+            widths.append(img.shape[1])
+    
+    mh = min(heights)
+    mw = min(widths)
+    print('data count : ' + str(amount))
+    print('min height : ' + str(mh))
+    print('min width : ' + str(mw))
+    return (int(mh), int(mw))    
 
 def getClassName_from_Dataset(classNames, numpyArr):
     i = 0
@@ -90,8 +109,8 @@ def save_HistoryResult(_type, start, model, history):
     Path(PATH).mkdir(parents=True, exist_ok=True)
 
     # log(mode, history)
-    with open(PATH + '/' + CURR.strftime('%Y%m%d_%H%M%S') + '_model.json', mode='w') as f:
-        f.write(model.to_json(indent=4))
+    # with open(PATH + '/' + CURR.strftime('%Y%m%d_%H%M%S') + '_model.json', mode='w') as f:
+    #     f.write(model.to_json(indent=4))
 
     # save image
     plt.subplot(1, 2, 1)
