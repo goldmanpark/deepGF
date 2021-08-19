@@ -28,7 +28,8 @@ threadStart = [False, False, False, False, False, False]
 
 # directory path
 chromeDriverPath = os.getcwd() + '/chromedriver.exe'
-ORIGINAL_PATH = os.getcwd() + '/ORIGINAL/'
+#ORIGINAL_PATH = os.getcwd() + '/ORIGINAL/'
+ORIGINAL_PATH = 'D:\ORIGINAL/'
 UNFIXED_PATH =  os.getcwd() + '/UNFIXED/'
 DATA_PATH = os.getcwd() + '/DATA/'
 
@@ -57,94 +58,102 @@ def findOrCreateDirectory(idx):
     except Exception as e:
         print(e)
 
-def storeMemberImage_Google(idx, logger):
-    memberName = gfMembers_ENG[idx]
+def storeMemberImage_Google(memberIdx, logger):
+    memberName = gfMembers_ENG[memberIdx]
 
-    # chromeDriver setting    
+    # chromeDriver setting
     chromeDriver = webdriver.Chrome(chromeDriverPath, options=chromeDriverOptions)
     chromeDriver.set_window_size(1920, 1080)
     chromeDriver.implicitly_wait(3)
     chromeWait = WebDriverWait(chromeDriver, 10, poll_frequency=1)
-    chromeDriver.get('https://www.google.co.kr/imghp?hl=ko')
-    chromeDriver.find_element_by_xpath('//*[@id="sbtc"]/div/div[2]/input').send_keys('여자친구 ' + gfMembers_KOR[idx])
-    chromeDriver.find_element_by_xpath('//*[@id="sbtc"]/button').click()
-    chromeDriver.implicitly_wait(2)
     
     # wait until browsers in other threads can start
-    threadStart[idx] = True    
-    while not all(threadStart):
-        pass
+    threadStart[memberIdx] = True    
+    # while not all(threadStart):
+    #     pass
 
-    # 1. Scrolling down until cannot scroll no more
-    last_height = chromeDriver.execute_script('return document.body.scrollHeight')
-    count = 0
-    scroll_sec = 1.5
-    while True:
-        chromeDriver.execute_script('window.scrollTo(0,document.body.scrollHeight)')
-        time.sleep(scroll_sec)
-        new_height = chromeDriver.execute_script('return document.body.scrollHeight')
-        if new_height == last_height and count == 3:
-            break
-        if new_height == last_height and count < 3: # new_height == last_height -> counting.
-            count += 1
-            scroll_sec += 0.5
-        if new_height != last_height and count > 0:
-            count = 0
-            scroll_sec = 1.5
-        last_height = new_height
-    
-    # 2. Count images and download all
-    XPATH_IMG = '//*[@id="Sva75c"]/div/div/div[3]/div[2]/c-wiz/div/div[1]/div[1]/div[2]/div[1]/a/img'
-    images = chromeDriver.find_elements_by_css_selector('.rg_i.Q4LuWd')
-    logger.writeProcesslog('scrap start', memberName + '_img_count = ' + str(len(images)))
+    for colorIdx in range(11, 13):
+        chromeDriver.get('https://www.google.co.kr/imghp?hl=ko')
+        chromeDriver.find_element_by_xpath('//*[@id="sbtc"]/div/div[2]/input').send_keys('여자친구 ' + gfMembers_KOR[memberIdx])
+        chromeDriver.find_element_by_xpath('//*[@id="sbtc"]/button').click()
+        chromeDriver.implicitly_wait(2)
+        chromeDriver.find_element_by_xpath('//*[@id="yDmH0d"]/div[2]/c-wiz/div[1]/div/div[1]/div[2]/div/div').click() # 도구
+        chromeDriver.implicitly_wait(2)
+        chromeDriver.find_element_by_xpath('//*[@id="yDmH0d"]/div[2]/c-wiz/div[2]/div[2]/c-wiz[1]/div/div/div[1]/div/div[2]/div/div[1]').click() # 색상
+        chromeDriver.implicitly_wait(2)
+        chromeDriver.find_element_by_xpath('//*[@id="yDmH0d"]/div[2]/c-wiz/div[2]/div[2]/c-wiz[1]/div/div/div[3]/div/div/a[' + str(colorIdx) + ']').click() # 색상선택
+        chromeDriver.implicitly_wait(3)
 
-    maxTry = 5
-    for i in range(0, len(images)):
-        startDttm = datetime.datetime.now()
-        compFlag = True
-        imgUrl = ''
-        try:
-            images[i].click()
-            chromeWait.until(EC.presence_of_element_located((By.XPATH, XPATH_IMG)))
-            for tryCnt in range(maxTry):        
-                try:
-                    imgUrl = chromeDriver.find_element_by_xpath(XPATH_IMG).get_attribute('src')
-                    if imgUrl.startswith('http') == False or imgUrl.startswith('https://encrypted-tbn0') or imgUrl == '':
-                        if tryCnt == maxTry - 1:
-                            logger.writeErrorlog('abnormal img src url', imgUrl)
-                            compFlag = False
-                            break
-                        else:
-                            time.sleep(1.5)
-                            continue
-
-                    imgData = Image.open(io.BytesIO(urllib.request.urlopen(imgUrl).read()))
-                    if imgData.width <= 250 or imgData.height <= 250:
-                        if tryCnt == maxTry - 1:
-                            logger.writeErrorlog('too small image', imgUrl)
-                            compFlag = False
-                            break
-                        else:
-                            time.sleep(1.5)
-                            continue
-
-                    imgData.save(ORIGINAL_PATH + memberName + '/google_' + format(i, '05') + '.png')
-                    compFlag = True
-                    break
-                except Exception as ex:
-                    if tryCnt == maxTry - 1:
-                        logger.writeErrorlog(type(ex).__name__, str(i) + ' : ' + imgUrl + '\n' + str(ex))
-                        compFlag = False
-                    else:
-                        time.sleep(2)
-        except Exception as ex:
-            logger.writeErrorlog(type(ex).__name__, str(i) + ' : ' + imgUrl + '\n' + str(ex))
+        # 1. Scrolling down until cannot scroll no more
+        last_height = chromeDriver.execute_script('return document.body.scrollHeight')
+        count = 0
+        scroll_sec = 1.5
+        while True:
+            chromeDriver.execute_script('window.scrollTo(0,document.body.scrollHeight)')
+            time.sleep(scroll_sec)
+            new_height = chromeDriver.execute_script('return document.body.scrollHeight')
+            if new_height == last_height and count == 3:
+                break
+            if new_height == last_height and count < 3: # new_height == last_height -> counting.
+                count += 1
+                scroll_sec += 0.5
+            if new_height != last_height and count > 0:
+                count = 0
+                scroll_sec = 1.5
+            last_height = new_height
         
-        endDttm = datetime.datetime.now()
-        if compFlag == True:
-            logger.writeProcesslog(str(i), str(endDttm - startDttm))
-        else:
-            logger.writeProcesslog(str(i) + ' : ERROR', str(endDttm - startDttm))
+        # 2. Count images and download all
+        XPATH_IMG = '//*[@id="Sva75c"]/div/div/div[3]/div[2]/c-wiz/div/div[1]/div[1]/div[2]/div[1]/a/img'
+        images = chromeDriver.find_elements_by_css_selector('.rg_i.Q4LuWd')
+        logger.writeProcesslog('scrap start', memberName + '_img_count = ' + str(len(images)))
+
+        maxTry = 5
+        for i in range(0, len(images)):
+            startDttm = datetime.datetime.now()
+            compFlag = True
+            imgUrl = ''
+            try:
+                images[i].click()
+                chromeWait.until(EC.presence_of_element_located((By.XPATH, XPATH_IMG)))
+                for tryCnt in range(maxTry):
+                    try:
+                        imgUrl = chromeDriver.find_element_by_xpath(XPATH_IMG).get_attribute('src')
+                        if imgUrl.startswith('http') == False or imgUrl.startswith('https://encrypted-tbn0') or imgUrl == '':
+                            if tryCnt == maxTry - 1:
+                                logger.writeErrorlog('abnormal img src url', imgUrl)
+                                compFlag = False
+                                break
+                            else:
+                                time.sleep(1.5)
+                                continue
+
+                        imgData = Image.open(io.BytesIO(urllib.request.urlopen(imgUrl).read()))
+                        if imgData.width <= 250 or imgData.height <= 250:
+                            if tryCnt == maxTry - 1:
+                                logger.writeErrorlog('too small image', imgUrl)
+                                compFlag = False
+                                break
+                            else:
+                                time.sleep(1.5)
+                                continue
+
+                        imgData.save(ORIGINAL_PATH + memberName + '/google_' + format(colorIdx, '02') + format(i, '05') + '.png')
+                        compFlag = True
+                        break
+                    except Exception as ex:
+                        if tryCnt == maxTry - 1:
+                            logger.writeErrorlog(type(ex).__name__, str(colorIdx) + '-' + str(i) + ' : ' + imgUrl + '\n' + str(ex))
+                            compFlag = False
+                        else:
+                            time.sleep(2)
+            except Exception as ex:
+                logger.writeErrorlog(type(ex).__name__, str(colorIdx) + '-' + str(i) + ' : ' + imgUrl + '\n' + str(ex))
+            
+            endDttm = datetime.datetime.now()
+            if compFlag == True:
+                logger.writeProcesslog(str(colorIdx) + '-' + str(i), str(endDttm - startDttm))
+            else:
+                logger.writeProcesslog(str(colorIdx) + '-' + str(i) + ' : ERROR', str(endDttm - startDttm))
 
     chromeDriver.close()
     logger.writeProcesslog('scrap end', 'image scrapped: ' + str(len(os.listdir(ORIGINAL_PATH + memberName))))
@@ -154,7 +163,7 @@ def createCroppedImg(original, face):
     y = face['box'][1]
     w = face['box'][2]
     h = face['box'][3]
-    if w <= 35 or h <= 35:
+    if w < 55 or h < 75:
         return None #too small
     return Image.fromarray(original[y : y + h, x : x + w]).convert('L')
 
@@ -195,12 +204,12 @@ def scrapWork(idx):
     logger = ScrapLogger(gfMembers_ENG[idx])
     findOrCreateDirectory(idx)
     storeMemberImage_Google(idx, logger)
-    cropFace(idx, logger)
+    #cropFace(idx, logger)
     print(gfMembers_ENG[idx] + ' finished')
 
 # Main
 threadList = []
-for idx in range(0, 6):
+for idx in range(4, 5):
     th = threading.Thread(target=scrapWork, args=(idx, ), name='thread_' + gfMembers_ENG[idx])
     th.start()
 
