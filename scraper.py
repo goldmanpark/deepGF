@@ -10,16 +10,14 @@ import threading
 import urllib.request
 import io
 import datetime
-import cv2
 from pathlib import Path
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 #from fake_useragent import UserAgent
-from mtcnn import MTCNN
-from PIL import Image
 from scrap_Logger import ScrapLogger
+from PIL import Image
 
 # Initialize global vaiables
 gfMembers_KOR = ['소원', '예린', '은하', '유주', '신비', '엄지']
@@ -58,40 +56,38 @@ def findOrCreateDirectory(idx):
     except Exception as e:
         print(e)
 
-def storeMemberImage_Google(memberIdx, logger):
-    memberName = gfMembers_ENG[memberIdx]
+def select_color(driver, memberIdx, colorIdx):
+    INPUT = '//*[@id="sbtc"]/div/div[2]/input'
+    SEARCH_BTN = '//*[@id="sbtc"]/button'
+    TOOL_BTN = '//*[@id="yDmH0d"]/div[2]/c-wiz/div[1]/div/div[1]/div[2]/div/div'
+    COLOR_BTN = '//*[@id="yDmH0d"]/div[2]/c-wiz/div[2]/div[2]/c-wiz[1]/div/div/div[1]/div/div[2]/div/div[1]'
+    COLOR_ITEM = '//*[@id="yDmH0d"]/div[2]/c-wiz/div[2]/div[2]/c-wiz[1]/div/div/div[3]/div/div/a[' + str(colorIdx) + ']'
+    for i in range(5):
+        try:
+            driver.get('https://www.google.co.kr/imghp?hl=ko')
+            driver.find_element_by_xpath(INPUT).send_keys('여자친구 ' + gfMembers_KOR[memberIdx])
+            driver.find_element_by_xpath(SEARCH_BTN).click()
+            driver.implicitly_wait(2)
+            driver.find_element_by_xpath(TOOL_BTN).click() # 도구
+            driver.implicitly_wait(2)
+            driver.find_element_by_xpath(COLOR_BTN).click() # 색상
+            driver.implicitly_wait(2)
+            driver.find_element_by_xpath(COLOR_ITEM).click() # 색상선택
+            driver.implicitly_wait(3)
+            break
+        except Exception as ex:
+            continue
 
-    # chromeDriver setting
-    chromeDriver = webdriver.Chrome(chromeDriverPath, options=chromeDriverOptions)
-    chromeDriver.set_window_size(1920, 1080)
-    chromeDriver.implicitly_wait(3)
-    chromeWait = WebDriverWait(chromeDriver, 10, poll_frequency=1)
-    
-    # wait until browsers in other threads can start
-    threadStart[memberIdx] = True    
-    # while not all(threadStart):
-    #     pass
-
-    for colorIdx in range(11, 13):
-        chromeDriver.get('https://www.google.co.kr/imghp?hl=ko')
-        chromeDriver.find_element_by_xpath('//*[@id="sbtc"]/div/div[2]/input').send_keys('여자친구 ' + gfMembers_KOR[memberIdx])
-        chromeDriver.find_element_by_xpath('//*[@id="sbtc"]/button').click()
-        chromeDriver.implicitly_wait(2)
-        chromeDriver.find_element_by_xpath('//*[@id="yDmH0d"]/div[2]/c-wiz/div[1]/div/div[1]/div[2]/div/div').click() # 도구
-        chromeDriver.implicitly_wait(2)
-        chromeDriver.find_element_by_xpath('//*[@id="yDmH0d"]/div[2]/c-wiz/div[2]/div[2]/c-wiz[1]/div/div/div[1]/div/div[2]/div/div[1]').click() # 색상
-        chromeDriver.implicitly_wait(2)
-        chromeDriver.find_element_by_xpath('//*[@id="yDmH0d"]/div[2]/c-wiz/div[2]/div[2]/c-wiz[1]/div/div/div[3]/div/div/a[' + str(colorIdx) + ']').click() # 색상선택
-        chromeDriver.implicitly_wait(3)
-
+def get_image_list(driver):
+    try:
         # 1. Scrolling down until cannot scroll no more
-        last_height = chromeDriver.execute_script('return document.body.scrollHeight')
+        last_height = driver.execute_script('return document.body.scrollHeight')
         count = 0
         scroll_sec = 1.5
         while True:
-            chromeDriver.execute_script('window.scrollTo(0,document.body.scrollHeight)')
+            driver.execute_script('window.scrollTo(0,document.body.scrollHeight)')
             time.sleep(scroll_sec)
-            new_height = chromeDriver.execute_script('return document.body.scrollHeight')
+            new_height = driver.execute_script('return document.body.scrollHeight')
             if new_height == last_height and count == 3:
                 break
             if new_height == last_height and count < 3: # new_height == last_height -> counting.
@@ -103,10 +99,31 @@ def storeMemberImage_Google(memberIdx, logger):
             last_height = new_height
         
         # 2. Count images and download all
-        XPATH_IMG = '//*[@id="Sva75c"]/div/div/div[3]/div[2]/c-wiz/div/div[1]/div[1]/div[2]/div[1]/a/img'
-        images = chromeDriver.find_elements_by_css_selector('.rg_i.Q4LuWd')
+        images = driver.find_elements_by_css_selector('.rg_i.Q4LuWd')
+        return images
+    except Exception:
+        return None
+
+def storeMemberImage_Google(memberIdx, logger):
+    memberName = gfMembers_ENG[memberIdx]
+
+    # chromeDriver setting
+    chromeDriver = webdriver.Chrome(chromeDriverPath, options=chromeDriverOptions)
+    chromeDriver.set_window_size(1920, 1080)
+    chromeDriver.implicitly_wait(3)
+    chromeWait = WebDriverWait(chromeDriver, 10, poll_frequency=1)
+    
+    # wait until browsers in other threads can start
+    threadStart[memberIdx] = True    
+    while not all(threadStart):
+        pass
+
+    for colorIdx in range(1, 13):   # 1 ~ 12
+        select_color(driver=chromeDriver, memberIdx=memberIdx, colorIdx=colorIdx)
+        images = get_image_list(driver=chromeDriver)
         logger.writeProcesslog('scrap start', memberName + '_img_count = ' + str(len(images)))
 
+        XPATH_IMG = '//*[@id="Sva75c"]/div/div/div[3]/div[2]/c-wiz/div/div[1]/div[1]/div[2]/div[1]/a/img'
         maxTry = 5
         for i in range(0, len(images)):
             startDttm = datetime.datetime.now()
@@ -158,58 +175,15 @@ def storeMemberImage_Google(memberIdx, logger):
     chromeDriver.close()
     logger.writeProcesslog('scrap end', 'image scrapped: ' + str(len(os.listdir(ORIGINAL_PATH + memberName))))
 
-def createCroppedImg(original, face):
-    x = face['box'][0]
-    y = face['box'][1]
-    w = face['box'][2]
-    h = face['box'][3]
-    if w < 55 or h < 75:
-        return None #too small
-    return Image.fromarray(original[y : y + h, x : x + w]).convert('L')
-
-def cropFace(idx, logger):
-    memberName = gfMembers_ENG[idx]
-    imgSet = os.listdir(ORIGINAL_PATH + memberName)
-    cnt = 0
-    logger.writeProcesslog('crop start', 'target image: ' + str(len(imgSet)))
-    for img in imgSet:
-        try:
-            imgDir = ORIGINAL_PATH + memberName + '/' + img
-            rgbImg = cv2.cvtColor(cv2.imread(imgDir), cv2.COLOR_BGR2RGB) # return numpy array type
-            detector = MTCNN()
-            results = detector.detect_faces(rgbImg)
-            if len(results) == 0:
-                logger.writeErrorlog('no faces detected', imgDir)
-            elif len(results) == 1:
-                cropImg = createCroppedImg(rgbImg, results[0])
-                if cropImg:
-                    cropImg.save(DATA_PATH + memberName + '/' + format(cnt, '05') + '.png')
-                    cnt += 1
-            else:
-                cnts = []
-                for res in results:
-                    cropImg = createCroppedImg(rgbImg, res)
-                    if cropImg:
-                        cropImg.save(UNFIXED_PATH + memberName + '/' + memberName + '_' + format(cnt, '05') + '.png')                    
-                        cnts.append(format(cnt, '05'))
-                        cnt += 1
-                if len(cnts) > 1:
-                    logger.writeErrorlog('2 or more faces detected : ' + str(cnts), imgDir)
-        except Exception as ex:
-            logger.writeErrorlog(type(ex).__name__, imgDir + '/n' + str(ex))
-    logger.writeProcesslog('crop end', 'face images: ' + str(len(os.listdir(DATA_PATH + memberName ))))
-    logger.writeProcesslog('crop end', 'unfixed face images: ' + str(len(os.listdir(UNFIXED_PATH + memberName))))
-
 def scrapWork(idx):
     logger = ScrapLogger(gfMembers_ENG[idx])
     findOrCreateDirectory(idx)
     storeMemberImage_Google(idx, logger)
-    #cropFace(idx, logger)
-    print(gfMembers_ENG[idx] + ' finished')
+    print(gfMembers_ENG[idx] + 'scrap finished')
 
 # Main
 threadList = []
-for idx in range(4, 5):
+for idx in range(0, 6):
     th = threading.Thread(target=scrapWork, args=(idx, ), name='thread_' + gfMembers_ENG[idx])
     th.start()
 
