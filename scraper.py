@@ -28,8 +28,6 @@ threadStart = [False, False, False, False, False, False]
 chromeDriverPath = os.getcwd() + '/chromedriver.exe'
 #ORIGINAL_PATH = os.getcwd() + '/ORIGINAL/'
 ORIGINAL_PATH = 'D:\ORIGINAL/'
-UNFIXED_PATH =  os.getcwd() + '/UNFIXED/'
-DATA_PATH = os.getcwd() + '/DATA/'
 
 # selenium option
 chromeDriverOptions = webdriver.ChromeOptions()
@@ -51,8 +49,6 @@ urllib.request.install_opener(opener)
 def findOrCreateDirectory(idx):
     try:
         Path(ORIGINAL_PATH + gfMembers_ENG[idx]).mkdir(parents=True, exist_ok=True)
-        Path(UNFIXED_PATH + gfMembers_ENG[idx]).mkdir(parents=True, exist_ok=True)
-        Path(DATA_PATH + gfMembers_ENG[idx]).mkdir(parents=True, exist_ok=True)
     except Exception as e:
         print(e)
 
@@ -185,6 +181,7 @@ def scrapWork(idx):
 threadList = []
 for idx in range(0, 6):
     th = threading.Thread(target=scrapWork, args=(idx, ), name='thread_' + gfMembers_ENG[idx])
+    threadList.append(th)
     th.start()
 
 for thread in threadList:
