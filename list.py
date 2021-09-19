@@ -1,0 +1,6 @@
+GFRIEND_KOR = ['소원', '예린', '은하', '유주', '신비', '엄지']
+GFRIEND_ENG = ['SOWON', 'YERIN', 'EUNHA', 'YUJU', 'SINB', 'UMJI']
+BLACKPINK_KOR = ['지수', '제니', '로제', '리사']
+BLACKPINK_ENG = ['JISOO', 'JENNIE', 'ROSE', 'LISA']
+REDVELVET_KOR = ['아이린', '슬기', '웬디', '조이', '예리']
+REDVELVET_ENG = ['IRENE', 'SEULGI', 'WENDY', 'JOY', 'YERI']
