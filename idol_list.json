@@ -1,0 +1,80 @@
+{
+    "blackpink" : {
+        "group_eng" : "BLACKPINK",
+        "group_kor" : "블랙핑크",
+        "members" : [
+            {
+                "eng" : "JISOO",
+                "kor" : "지수"
+            },
+            {
+                "eng" : "JENNIE",
+                "kor" : "제니"
+            },
+            {
+                "eng" : "ROSE",
+                "kor" : "로제"
+            },
+            {
+                "eng" : "LISA",
+                "kor" : "리사"
+            }
+        ]
+    },
+    "gfriend" : {
+        "group_eng" : "GFRIEND",
+        "group_kor" : "여자친구",
+        "members" : [
+            {
+                "eng" : "SOWON",
+                "kor" : "소원"
+            },
+            {
+                "eng" : "YERIN",
+                "kor" : "예린"
+            },
+            {
+                "eng" : "EUNHA",
+                "kor" : "은하"
+            },
+            {
+                "eng" : "YUJU",
+                "kor" : "유주"
+            },
+            {
+                "eng" : "SINB",
+                "kor" : "신비"
+            },
+            {
+                "eng" : "UMJI",
+                "kor" : "엄지"
+            }
+        ]
+    },
+    "redvelvet" : {
+        "group_eng" : "RED VELVET",
+        "group_kor" : "레드벨벳",        
+        "members" : [
+            {
+                "eng" : "IRENE",
+                "kor" : "아이린"
+            },
+            {
+                "eng" : "SEULGI",
+                "kor" : "슬기"
+            },
+            {
+                "eng" : "WENDY",
+                "kor" : "웬디"
+            },
+            {
+                "eng" : "JOY",
+                "kor" : "조이"
+            },
+            {
+                "eng" : "YERI",
+                "kor" : "예리"
+            }
+        ]
+    }
+}
