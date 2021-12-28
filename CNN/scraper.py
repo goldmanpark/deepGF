@@ -1,6 +1,7 @@
 import time
 import urllib.request
 import io
+import os
 from pathlib import Path
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -9,10 +10,11 @@ from selenium.webdriver.support import expected_conditions as EC
 from PIL import Image
 
 class Scraper():
-    def __init__(self, save_path, driver_path, kor_group, kor_name, eng_name):
-        self.SAVE_PATH = save_path
-        self.DRIVER_PATH = driver_path
+    def __init__(self, eng_group, kor_group, kor_name, eng_name):
+        self.SAVE_PATH = os.getcwd() + '/' + eng_group + '/ORIGINAL/'
+        self.DRIVER_PATH = os.getcwd() + '/chromedriver.exe'
         self.KOR_GROUP = kor_group
+        self.ENG_GROUP = eng_group
         self.KOR_NAME = kor_name
         self.ENG_NAME = eng_name
 
@@ -21,8 +23,14 @@ class Scraper():
         opener.addheaders = [('User-agent', 'Mozilla/5.0')]
         urllib.request.install_opener(opener)
 
-    def print_exception(self, ex):
+    def _print_exception(self, ex):
         print(ex)
+
+    def findOrCreateDirectory(self):
+        try:
+            Path(self.SAVE_PATH + self.ENG_NAME).mkdir(parents=True, exist_ok=True)
+        except Exception as ex:
+            self._print_exception(ex)
 
     def init_browser(self):
         options = webdriver.ChromeOptions()
@@ -37,15 +45,9 @@ class Scraper():
         self.CHROME_DRIVER = webdriver.Chrome(self.DRIVER_PATH, options=options)        
         self.CHROME_DRIVER.set_window_size(1920, 1080)
         self.CHROME_DRIVER.implicitly_wait(3)
-        self.CHROME_WAIT = WebDriverWait(self.CHROME_DRIVER, 10, poll_frequency=1)
+        self.CHROME_WAIT = WebDriverWait(self.CHROME_DRIVER, 10, poll_frequency=1)    
 
-    def findOrCreateDirectory(self):
-        try:
-            Path(self.SAVE_PATH + self.ENG_NAME).mkdir(parents=True, exist_ok=True)
-        except Exception as ex:
-            self.print_exception(ex)
-
-    def select_color(self, colorIdx):
+    def _select_color(self, colorIdx):
         INPUT = '//*[@id="sbtc"]/div/div[2]/input'
         SEARCH_BTN = '//*[@id="sbtc"]/button'
         TOOL_BTN = '//*[@id="yDmH0d"]/div[2]/c-wiz/div[1]/div/div[1]/div[2]/div/div'
@@ -65,10 +67,10 @@ class Scraper():
                 self.CHROME_DRIVER.implicitly_wait(3)
                 break
             except Exception as ex:
-                self.print_exception(ex)
+                self._print_exception(ex)
                 continue
 
-    def get_image_list(self):
+    def _get_image_list(self):
         try:
             # 1. Scrolling down until cannot scroll no more
             last_height = self.CHROME_DRIVER.execute_script('return document.body.scrollHeight')
@@ -93,13 +95,13 @@ class Scraper():
             images = self.CHROME_DRIVER.find_elements_by_css_selector('.rg_i.Q4LuWd')
             return images
         except Exception as ex:
-            self.print_exception(ex)
+            self._print_exception(ex)
             return None
 
     def store_member_images(self):
         for colorIdx in range(1, 13):   # 1 ~ 12 colors
-            self.select_color(colorIdx=colorIdx)
-            images = self.get_image_list()
+            self._select_color(colorIdx=colorIdx)
+            images = self._get_image_list()
 
             XPATH_IMG = '//*[@id="Sva75c"]/div/div/div[3]/div[2]/c-wiz/div/div[1]/div[1]/div[2]/div[1]/a/img'
             maxTry = 5
@@ -130,10 +132,10 @@ class Scraper():
                             break
                         except Exception as ex:
                             if tryCnt == maxTry - 1:
-                                self.print_exception(type(ex).__name__ + '-' + str(i) + ' : ' + imgUrl + '\n' + str(ex))
+                                self._print_exception(type(ex).__name__ + '-' + str(i) + ' : ' + imgUrl + '\n' + str(ex))
                             else:
                                 time.sleep(2)
                 except Exception as ex:
-                    self.print_exception(type(ex).__name__ + '-' + str(i) + ' : ' + imgUrl + '\n' + str(ex))
+                    self._print_exception(type(ex).__name__ + '-' + str(i) + ' : ' + imgUrl + '\n' + str(ex))
 
         self.CHROME_DRIVER.close()

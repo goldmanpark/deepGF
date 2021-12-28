@@ -6,11 +6,9 @@
 
 import os
 import threading
-import urllib.request
 import sys
 import json
-from selenium import webdriver
-from scraper_class import Scraper
+from scraper import Scraper
 
 def scrap_work(worker, workerIdx, threadStart):
     print(worker.ENG_NAME + ' scrap started')
@@ -31,21 +29,20 @@ def main():
             print("argv error")
             sys.exit(0)
 
-        selected_group = {}
-        with open(os.getcwd() + '/idol_list.json', encoding='UTF8') as f:
+        selected_group = {} #json type
+        with open(os.getcwd() + '../idol_list.json', encoding='UTF8') as f:
             json_data = json.loads(f.read())
-            selected_group = json_data[sys.argv[1]]
-
-        # directory path
-        DRIVER_PATH = os.getcwd() + '/chromedriver.exe'
-        SAVE_PATH = 'D:\DeepLearning_DATA/' + selected_group['group_eng'] + '/ORIGINAL/'
+            idolName = sys.argv[1]
+            selected_group = json_data[idolName]
         
         threadList = []
         threadStart = [False for _ in range(len(selected_group['members']))]
 
         for idx, member in enumerate(selected_group['members']):
-            worker = Scraper(save_path=SAVE_PATH, driver_path=DRIVER_PATH, kor_group=selected_group['group_kor'], 
-                            kor_name=member['kor'], eng_name=member['eng'])
+            worker = Scraper(eng_group=selected_group['group_eng'], 
+                             kor_group=selected_group['group_kor'],
+                             kor_name=member['kor'], 
+                             eng_name=member['eng'])
             th = threading.Thread(target=scrap_work, args=(worker, idx, threadStart), name='thread_' + member['eng'])
             threadList.append(th)
             th.start()
